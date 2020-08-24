@@ -1,0 +1,5 @@
+account_id = "CF_ACCOUNT_ID"
+name = "info"
+type = "webpack"
+webpack_config = "webpack.config.js"
+workers_dev = true

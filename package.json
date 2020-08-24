@@ -1,0 +1,21 @@
+{
+  "name": "info",
+  "version": "0.0.1",
+  "description": "MoveInfoGen on Cloudflare Worker",
+  "main": "index.js",
+  "scripts": {
+    "build": "wrangler build",
+    "preview": "wrangler preview",
+    "publish": "wrangler publish"
+  },
+  "author": "Secant <zzwu@zju.edu.cn>",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@babel/core": "^7.11.4",
+    "@babel/plugin-proposal-class-properties": "^7.10.4",
+    "@babel/preset-env": "^7.11.0",
+    "babel-loader": "^8.1.0",
+    "babel-preset-minify": "^0.5.1"
+  }
+}
