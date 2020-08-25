@@ -22,7 +22,7 @@ function addComma(number) {
 }
 
 // 类定义
-class doubanParser {
+class DoubanParser {
   // 私有实例字段：隐私信息
   #headers;
   // 私有实例字段：中间变量
@@ -42,15 +42,15 @@ class doubanParser {
   #episodeDurationOver;
   #episodeCountOver;
 
-  // 公有静态 getter：解析模板定义
-  static get doubanInfoPageParser() {
+  // 静态私有方法 生成解析模板：调用时需动态绑定 this
+  static #infoPageParserGen() {
     return {
       element: [
         {
           // setChineseTitle
           selector: "title",
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.#chineseTitle === "undefined") {
               this.#chineseTitle = "";
             }
@@ -67,7 +67,7 @@ class doubanParser {
           // setOriginalTitle
           selector: "#content h1>span[property]",
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.#originalTitle === "undefined") {
               this.#originalTitle = "";
             }
@@ -89,7 +89,7 @@ class doubanParser {
           // setPoster
           selector: "#mainpic img",
           target: "element",
-          handler: function (el) {
+          handler: (el) => {
             try {
               this.poster = el
                 .getAttribute("src")
@@ -107,7 +107,7 @@ class doubanParser {
           // setYear
           selector: "#content > h1 > span.year",
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.year === "undefined") {
               this.year = "";
             }
@@ -121,7 +121,7 @@ class doubanParser {
           // setGenres
           selector: '#info span[property="v:genre"]',
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.genres === "undefined") {
               this.genres = [];
               this.#genre = "";
@@ -137,7 +137,7 @@ class doubanParser {
           // setReleaseDates
           selector: '#info span[property="v:initialReleaseDate"]',
           target: "element",
-          handler: function (el) {
+          handler: (el) => {
             if (typeof this.releaseDates === "undefined") {
               this.releaseDates = [];
             }
@@ -148,7 +148,7 @@ class doubanParser {
           // initDurations
           selector: '#info span[property="v:runtime"]',
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.durations === "undefined") {
               this.durations = "";
             }
@@ -158,7 +158,7 @@ class doubanParser {
           // setFirstSeasonDoubanID
           selector: "#season > option:first-child",
           target: "element",
-          handler: function (el) {
+          handler: (el) => {
             if (el.getAttribute("selected") === null) {
               this.#firstSeasonDoubanID = el.getAttribute("value");
             }
@@ -168,7 +168,7 @@ class doubanParser {
           // setIMDbID
           selector: '#info a[href^="https://www.imdb.com/title/tt"]',
           target: "element",
-          handler: function (el) {
+          handler: (el) => {
             this.imdbID = el.getAttribute("href").match(/tt(\d+)/)[1];
           },
         },
@@ -176,7 +176,7 @@ class doubanParser {
           // setTags
           selector: "div.tags-body>a",
           target: "element",
-          handler: function (el) {
+          handler: (el) => {
             if (typeof this.tags === "undefined") {
               this.tags = [];
             }
@@ -187,7 +187,7 @@ class doubanParser {
           // setDoubanAverageRating
           selector: '#interest_sectl [property="v:average"]',
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.#doubanAverageRating === "undefined") {
               this.#doubanAverageRating = "";
             }
@@ -201,7 +201,7 @@ class doubanParser {
           // setDoubanRatingVotes
           selector: '#interest_sectl [property="v:votes"]',
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.#doubanRatingVotes === "undefined") {
               this.#doubanRatingVotes = "";
             }
@@ -215,7 +215,7 @@ class doubanParser {
           // setDoubanRatingHistogram
           selector: "#interest_sectl .ratings-on-weight .rating_per",
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.#doubanRatingHistogram === "undefined") {
               this.#doubanRatingHistogram = [];
               this.#_doubanRatingHistogram = "";
@@ -238,7 +238,7 @@ class doubanParser {
           selector:
             '#link-report>[property="v:summary"],#link-report>span.all.hidden',
           target: "element",
-          handler: function (el) {
+          handler: (el) => {
             this.description = undefined;
           },
         },
@@ -247,7 +247,7 @@ class doubanParser {
           selector:
             '#link-report>[property="v:summary"],#link-report>span.all.hidden',
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.description === "undefined") {
               this.description = [];
               this.#description = "";
@@ -265,7 +265,7 @@ class doubanParser {
           // startInfo
           selector: "#info > span.pl",
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.#label === "undefined") {
               this.#label = text.text;
             } else {
@@ -293,7 +293,7 @@ class doubanParser {
           // setInfo
           selector: "#info",
           target: "text",
-          handler: function (text) {
+          handler: (text) => {
             if (typeof this.regions === "string") {
               this.regions += text.text;
             }
@@ -324,7 +324,7 @@ class doubanParser {
           // stopInfo
           selector: "#info > br",
           target: "element",
-          handler: function (el) {
+          handler: (el) => {
             if (typeof this.regions === "string") {
               this.regions = this.regions.trim().split(" / ");
             }
@@ -356,7 +356,7 @@ class doubanParser {
       ],
       document: {
         // postProcess
-        end: function (end) {
+        end: (end) => {
           if (this.#COTitlesSame && /中国/.test(this.regions[0])) {
             this.#transTitle = this.#akaTitles.find((title) =>
               /[a-z]/i.test(title)
@@ -479,18 +479,18 @@ class doubanParser {
     this.#headers = headers;
   }
 
-  // 初始化函数：解析并向实例字段赋值
+  // 公有实例方法 初始化函数：解析页面并向实例字段赋值（待拆分）
   async init() {
-    let infoPagePromise = this.getPage();
+    let infoPagePromise = this.#requestPage();
     // let celebritiesPagePromise = getPage('celebrities');
     // let awardsPagePromise = getPage('awards');
 
     let resp = await infoPagePromise;
 
     if (resp.ok) {
-      await this.parsePage(resp, this.constructor.doubanInfoPageParser);
+      await this.#parsePage(resp, DoubanParser.#infoPageParserGen.apply(this));
       if (this.#firstSeasonDoubanID !== null) {
-        const doubanItem = new doubanParser(
+        const doubanItem = new DoubanParser(
           this.#firstSeasonDoubanID,
           this.#headers
         );
@@ -500,10 +500,10 @@ class doubanParser {
     }
   }
 
-  // 请求页面：请求相关页面
-  getPage(type = "") {
+  // 私有实例方法 请求页面：请求相关页面
+  async #requestPage(type = "") {
     let pageURL = `https://movie.douban.com/subject/${this.doubanID}/`;
-    return fetch((pageURL += type), {
+    return await fetch((pageURL += type), {
       headers: this.#headers,
       /*
       cf: {
@@ -519,20 +519,16 @@ class doubanParser {
     });
   }
 
-  // 解析页面：根据解析模板解析页面
-  parsePage(resp, parser) {
+  // 私有实例方法 解析页面：根据解析模板解析页面
+  async #parsePage(resp, parser) {
     let rewriter = new HTMLRewriter();
-    for (const el of parser.element) {
-      rewriter = rewriter.on(el.selector, {
-        [el.target]: el.handler.bind(this),
+    parser.element.forEach(({ selector, target, handler }) => {
+      rewriter = rewriter.on(selector, {
+        [target]: handler,
       });
-    }
-    const pDocument = parser.document;
-    Object.keys(pDocument).forEach(
-      (key) => (pDocument[key] = pDocument[key].bind(this))
-    );
-    rewriter = rewriter.onDocument(pDocument);
-    return rewriter.transform(resp).text();
+    });
+    rewriter = rewriter.onDocument(parser.document);
+    return await rewriter.transform(resp).text();
   }
 }
 
@@ -554,7 +550,7 @@ async function handleRequest(request) {
       cookie: searchParams.get("cookie") || incomeHeaders.get("cookie"),
     };
     if (/^\d+$/.test(id)) {
-      const doubanItem = new doubanParser(id, reqHeaders);
+      const doubanItem = new DoubanParser(id, reqHeaders);
       await doubanItem.init();
       respBody = JSON.stringify({
         poster: doubanItem.poster,
