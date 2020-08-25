@@ -43,7 +43,15 @@ class DoubanParser {
   #episodeDurationOver;
   #episodeCountOver;
 
-  // 静态私有方法 生成解析模板：调用时需动态绑定 this
+  #awardsTitle;
+  #awardsYear;
+  #awardsNumber;
+  #categories;
+  #categoriesTitle;
+  #winners;
+  #categoriesNumber;
+
+  // 静态私有方法 生成条目页面解析模板：调用时需动态绑定 this
   static #infoPageParserGen() {
     return {
       element: [
@@ -476,6 +484,119 @@ class DoubanParser {
     };
   }
 
+  // 静态私有方法 生成获奖页面解析模板：调用时需动态绑定 this （代码比较乱，但是暂时没有比较好的解决办法）
+  static #awardsPageParserGen() {
+    return {
+      element: [
+        {
+          selector: "div.awards .hd > h2 > a",
+          target: "text",
+          handler: (text) => {
+            if (typeof this.awards === "undefined") {
+              this.awards = [];
+              this.#awardsTitle = "";
+              this.#awardsNumber = 0;
+            } else {
+              if (this.#awardsTitle === "") {
+                this.#categories[this.#categoriesNumber].winners = this.#winners
+                  ? he
+                      .decode(this.#winners)
+                      .split("/")
+                      .map((p) => p.trim())
+                  : [];
+                this.awards[
+                  this.#awardsNumber - 1
+                ].categories = this.#categories;
+                this.#winners = "";
+                this.#categories = undefined;
+              }
+            }
+            this.#awardsTitle += text.text;
+            if (text.lastInTextNode) {
+              this.awards.push({
+                title: this.#awardsTitle.trim(),
+              });
+              this.#awardsTitle = "";
+            }
+          },
+        },
+        {
+          selector: "div.awards > .hd > h2 > span.year",
+          target: "text",
+          handler: (text) => {
+            if (typeof this.#awardsYear === "undefined") {
+              this.#awardsYear = "";
+            }
+            this.#awardsYear += text.text;
+            if (text.lastInTextNode) {
+              this.awards[this.#awardsNumber].year = parseInt(
+                this.#awardsYear.match(/\d+/)[0]
+              );
+              this.#awardsYear = "";
+              ++this.#awardsNumber;
+            }
+          },
+        },
+        {
+          selector: "div.awards > .award > li:first-of-type",
+          target: "text",
+          handler: (text) => {
+            if (typeof this.#categories === "undefined") {
+              this.#categories = [];
+              this.#categoriesTitle = "";
+              this.#categoriesNumber = 0;
+            } else if (this.#categoriesTitle === "") {
+              this.#categories[this.#categoriesNumber].winners = this.#winners
+                ? he
+                    .decode(this.#winners)
+                    .split("/")
+                    .map((p) => p.trim())
+                : [];
+              this.#winners = "";
+              ++this.#categoriesNumber;
+            }
+            this.#categoriesTitle += text.text;
+            if (text.lastInTextNode) {
+              this.#categories.push({
+                title: this.#categoriesTitle.trim(),
+              });
+              this.#categoriesTitle = "";
+            }
+          },
+        },
+        {
+          selector: "div.awards > .award > li:nth-of-type(2)",
+          target: "text",
+          handler: (text) => {
+            if (typeof this.#winners === "undefined") {
+              this.#winners = "";
+            }
+            this.#winners += text.text;
+            if (text.lastInTextNode) {
+            }
+          },
+        },
+      ],
+      document: {
+        end: (end) => {
+          if (typeof this.awards === "undefined") {
+            this.awards = [];
+          } else {
+            this.#categories[this.#categoriesNumber].winners = this.#winners
+              ? he
+                  .decode(this.#winners)
+                  .split("/")
+                  .map((p) => p.trim())
+              : [];
+            this.awards[this.#awardsNumber - 1].categories = this.#categories;
+          }
+        },
+      },
+    };
+  }
+
+  // 静态私有方法 生成影人页面解析模板：调用时需动态绑定 this
+
   // 静态私有方法 解析页面：根据解析模板解析页面
   static async #parsePage(resp, parser) {
     let rewriter = new HTMLRewriter();
@@ -497,8 +618,8 @@ class DoubanParser {
   // 公有实例方法 初始化函数：解析页面并向实例字段赋值（待拆分）
   async init() {
     let infoPagePromise = this.#requestPage();
-    // let celebritiesPagePromise = getPage('celebrities');
-    // let awardsPagePromise = getPage('awards');
+    // let celebritiesPagePromise = this.#requestPage('celebrities');
+    let awardsPagePromise = this.#requestPage("awards");
 
     let resp = await infoPagePromise;
 
@@ -515,6 +636,14 @@ class DoubanParser {
         await doubanItem.init();
         this.imdbID = doubanItem.imdbID;
       }
+    }
+
+    resp = await awardsPagePromise;
+    if (resp.ok) {
+      await DoubanParser.#parsePage(
+        resp,
+        DoubanParser.#awardsPageParserGen.apply(this)
+      );
     }
   }
 
@@ -574,6 +703,7 @@ async function handleRequest(request) {
         episodeCount: doubanItem.episodeCount,
         tags: doubanItem.tags,
         description: doubanItem.description,
+        awards: doubanItem.awards,
       });
     } else {
       respBody = JSON.stringify({
