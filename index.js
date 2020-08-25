@@ -473,6 +473,18 @@ class DoubanParser {
     };
   }
 
+  // 静态私有方法 解析页面：根据解析模板解析页面
+  static async #parsePage(resp, parser) {
+    let rewriter = new HTMLRewriter();
+    parser.element.forEach(({ selector, target, handler }) => {
+      rewriter = rewriter.on(selector, {
+        [target]: handler,
+      });
+    });
+    rewriter = rewriter.onDocument(parser.document);
+    return await rewriter.transform(resp).text();
+  }
+
   // 构造函数：创建实例
   constructor(id, headers) {
     this.doubanID = id;
@@ -488,7 +500,10 @@ class DoubanParser {
     let resp = await infoPagePromise;
 
     if (resp.ok) {
-      await this.#parsePage(resp, DoubanParser.#infoPageParserGen.apply(this));
+      await DoubanParser.#parsePage(
+        resp,
+        DoubanParser.#infoPageParserGen.apply(this)
+      );
       if (this.#firstSeasonDoubanID !== null) {
         const doubanItem = new DoubanParser(
           this.#firstSeasonDoubanID,
@@ -517,18 +532,6 @@ class DoubanParser {
       },
       */
     });
-  }
-
-  // 私有实例方法 解析页面：根据解析模板解析页面
-  async #parsePage(resp, parser) {
-    let rewriter = new HTMLRewriter();
-    parser.element.forEach(({ selector, target, handler }) => {
-      rewriter = rewriter.on(selector, {
-        [target]: handler,
-      });
-    });
-    rewriter = rewriter.onDocument(parser.document);
-    return await rewriter.transform(resp).text();
   }
 }
 
