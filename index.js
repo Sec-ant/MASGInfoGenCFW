@@ -1,3 +1,4 @@
+const he = require("he");
 /**
  * Cloudflare Worker entrypoint
  */
@@ -82,6 +83,8 @@ class DoubanParser {
               } else {
                 this.#COTitlesSame = false;
               }
+              // 为何只有这里需要 unescape ? 待解决
+              this.#originalTitle = he.decode(this.#originalTitle);
             }
           },
         },
@@ -578,6 +581,7 @@ async function handleRequest(request) {
         error: "Douban ID format error, pure digits are expected",
       });
     }
+  } else if ("/favicon.ico" === pathName) {
   }
   return new Response(respBody, {
     headers: respHeaders,
