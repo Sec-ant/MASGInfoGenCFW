@@ -7,7 +7,7 @@ addEventListener("fetch", (event) => {
 });
 
 // 常量定义
-const AUTHOR = "TYT";
+const AUTHOR = "Secant";
 const VERSION = "0.0.1";
 const TIMEOUT = 6000;
 
@@ -56,7 +56,7 @@ class DoubanParser {
     return {
       element: [
         {
-          // setChineseTitle
+          // 中文标题
           selector: "title",
           target: "text",
           handler: (text) => {
@@ -73,7 +73,7 @@ class DoubanParser {
           },
         },
         {
-          // setOriginalTitle
+          // 原始标题
           selector: "#content h1>span[property]",
           target: "text",
           handler: (text) => {
@@ -91,13 +91,12 @@ class DoubanParser {
               } else {
                 this.#COTitlesSame = false;
               }
-              // 为何只有这里需要 unescape ? 待解决
               this.#originalTitle = he.decode(this.#originalTitle);
             }
           },
         },
         {
-          // setPoster
+          // 海报
           selector: "#mainpic img",
           target: "element",
           handler: (el) => {
@@ -115,8 +114,8 @@ class DoubanParser {
           },
         },
         {
-          // setYear
-          selector: "#content > h1 > span.year",
+          // 年份
+          selector: "#content>h1>span.year",
           target: "text",
           handler: (text) => {
             if (typeof this.year === "undefined") {
@@ -129,7 +128,7 @@ class DoubanParser {
           },
         },
         {
-          // setGenres
+          // 类别
           selector: '#info span[property="v:genre"]',
           target: "text",
           handler: (text) => {
@@ -145,7 +144,7 @@ class DoubanParser {
           },
         },
         {
-          // setReleaseDates
+          // 上映日期
           selector: '#info span[property="v:initialReleaseDate"]',
           target: "element",
           handler: (el) => {
@@ -156,7 +155,7 @@ class DoubanParser {
           },
         },
         {
-          // initDurations
+          // 初始化时长
           selector: '#info span[property="v:runtime"]',
           target: "text",
           handler: (text) => {
@@ -166,8 +165,8 @@ class DoubanParser {
           },
         },
         {
-          // setFirstSeasonDoubanID
-          selector: "#season > option:first-child",
+          // 第一季豆瓣 ID
+          selector: "#season>option:first-child",
           target: "element",
           handler: (el) => {
             if (el.getAttribute("selected") === null) {
@@ -176,7 +175,7 @@ class DoubanParser {
           },
         },
         {
-          // setIMDbID
+          // IMDb ID
           selector: '#info a[href^="https://www.imdb.com/title/tt"]',
           target: "element",
           handler: (el) => {
@@ -184,7 +183,7 @@ class DoubanParser {
           },
         },
         {
-          // setTags
+          // 标签
           selector: "div.tags-body>a",
           target: "element",
           handler: (el) => {
@@ -195,7 +194,7 @@ class DoubanParser {
           },
         },
         {
-          // setDoubanAverageRating
+          // 豆瓣综合评分
           selector: '#interest_sectl [property="v:average"]',
           target: "text",
           handler: (text) => {
@@ -209,7 +208,7 @@ class DoubanParser {
           },
         },
         {
-          // setDoubanRatingVotes
+          // 豆瓣评分人数
           selector: '#interest_sectl [property="v:votes"]',
           target: "text",
           handler: (text) => {
@@ -223,7 +222,7 @@ class DoubanParser {
           },
         },
         {
-          // setDoubanRatingHistogram
+          // 豆瓣星级分布
           selector: "#interest_sectl .ratings-on-weight .rating_per",
           target: "text",
           handler: (text) => {
@@ -245,7 +244,7 @@ class DoubanParser {
           },
         },
         {
-          // initDescription
+          // 初始化简介
           selector:
             '#link-report>[property="v:summary"],#link-report>span.all.hidden',
           target: "element",
@@ -254,7 +253,7 @@ class DoubanParser {
           },
         },
         {
-          // setDescription
+          // 简介
           selector:
             '#link-report>[property="v:summary"],#link-report>span.all.hidden',
           target: "text",
@@ -273,8 +272,8 @@ class DoubanParser {
           },
         },
         {
-          // startInfo
-          selector: "#info > span.pl",
+          // 初始化详细信息
+          selector: "#info>span.pl",
           target: "text",
           handler: (text) => {
             if (typeof this.#label === "undefined") {
@@ -301,7 +300,7 @@ class DoubanParser {
           },
         },
         {
-          // setInfo
+          // 详细信息：制片国家/地区，语言，单集片长，集数，又名
           selector: "#info",
           target: "text",
           handler: (text) => {
@@ -332,8 +331,8 @@ class DoubanParser {
           },
         },
         {
-          // stopInfo
-          selector: "#info > br",
+          // 收尾详细信息
+          selector: "#info>br",
           target: "element",
           handler: (el) => {
             if (typeof this.regions === "string") {
@@ -366,7 +365,7 @@ class DoubanParser {
         },
       ],
       document: {
-        // postProcess
+        // 后处理收尾
         end: (end) => {
           if (this.#COTitlesSame && /中国/.test(this.regions[0])) {
             this.#transTitle = this.#akaTitles.find((title) =>
@@ -484,12 +483,28 @@ class DoubanParser {
     };
   }
 
-  // 静态私有方法 生成获奖页面解析模板：调用时需动态绑定 this （代码比较乱，但是暂时没有比较好的解决办法）
+  // 静态私有方法 生成获奖页面解析模板：调用时需动态绑定 this
   static #awardsPageParserGen() {
+    // 获奖项人员收尾辅助函数
+    const windupWinners = () => {
+      this.#categories[this.#categoriesNumber].winners = this.#winners
+        ? he
+            .decode(this.#winners)
+            .split("/")
+            .map((p) => p.trim())
+        : [];
+      this.#winners = "";
+    };
+    // 获奖项收尾辅助函数
+    const windupCategories = () => {
+      this.awards[this.#awardsNumber].categories = this.#categories;
+      this.#categories = undefined;
+    };
     return {
       element: [
         {
-          selector: "div.awards .hd > h2 > a",
+          // 获奖名称
+          selector: "div.awards>.hd>h2>a",
           target: "text",
           handler: (text) => {
             if (typeof this.awards === "undefined") {
@@ -498,30 +513,23 @@ class DoubanParser {
               this.#awardsNumber = 0;
             } else {
               if (this.#awardsTitle === "") {
-                this.#categories[this.#categoriesNumber].winners = this.#winners
-                  ? he
-                      .decode(this.#winners)
-                      .split("/")
-                      .map((p) => p.trim())
-                  : [];
-                this.awards[
-                  this.#awardsNumber - 1
-                ].categories = this.#categories;
-                this.#winners = "";
-                this.#categories = undefined;
+                windupWinners();
+                windupCategories();
+                ++this.#awardsNumber;
               }
             }
             this.#awardsTitle += text.text;
             if (text.lastInTextNode) {
               this.awards.push({
-                title: this.#awardsTitle.trim(),
+                title: he.decode(this.#awardsTitle).trim(),
               });
               this.#awardsTitle = "";
             }
           },
         },
         {
-          selector: "div.awards > .hd > h2 > span.year",
+          // 获奖年份
+          selector: "div.awards>.hd>h2>span.year",
           target: "text",
           handler: (text) => {
             if (typeof this.#awardsYear === "undefined") {
@@ -533,12 +541,12 @@ class DoubanParser {
                 this.#awardsYear.match(/\d+/)[0]
               );
               this.#awardsYear = "";
-              ++this.#awardsNumber;
             }
           },
         },
         {
-          selector: "div.awards > .award > li:first-of-type",
+          // 获奖项名称
+          selector: "div.awards>.award>li:first-of-type",
           target: "text",
           handler: (text) => {
             if (typeof this.#categories === "undefined") {
@@ -546,49 +554,38 @@ class DoubanParser {
               this.#categoriesTitle = "";
               this.#categoriesNumber = 0;
             } else if (this.#categoriesTitle === "") {
-              this.#categories[this.#categoriesNumber].winners = this.#winners
-                ? he
-                    .decode(this.#winners)
-                    .split("/")
-                    .map((p) => p.trim())
-                : [];
-              this.#winners = "";
+              windupWinners();
               ++this.#categoriesNumber;
             }
             this.#categoriesTitle += text.text;
             if (text.lastInTextNode) {
               this.#categories.push({
-                title: this.#categoriesTitle.trim(),
+                title: he.decode(this.#categoriesTitle).trim(),
               });
               this.#categoriesTitle = "";
             }
           },
         },
         {
-          selector: "div.awards > .award > li:nth-of-type(2)",
+          // 获奖项人员
+          selector: "div.awards>.award>li:nth-of-type(2)",
           target: "text",
           handler: (text) => {
             if (typeof this.#winners === "undefined") {
               this.#winners = "";
             }
             this.#winners += text.text;
-            if (text.lastInTextNode) {
-            }
           },
         },
       ],
       document: {
+        // 后处理收尾
         end: (end) => {
           if (typeof this.awards === "undefined") {
             this.awards = [];
           } else {
-            this.#categories[this.#categoriesNumber].winners = this.#winners
-              ? he
-                  .decode(this.#winners)
-                  .split("/")
-                  .map((p) => p.trim())
-              : [];
-            this.awards[this.#awardsNumber - 1].categories = this.#categories;
+            windupWinners();
+            windupCategories();
           }
         },
       },
