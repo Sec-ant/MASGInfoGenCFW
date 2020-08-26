@@ -3,7 +3,7 @@ const he = require("he");
 class DoubanParser {
   // 私有实例字段：隐私信息
   #headers;
-  // 私有实例字段：中间变量
+  // 私有实例字段：条目页面解析中间变量
   #chineseTitle;
   #originalTitle;
   #transTitle;
@@ -19,7 +19,7 @@ class DoubanParser {
   #label;
   #episodeDurationOver;
   #episodeCountOver;
-
+  // 私有实例字段：获奖页面解析中间变量
   #awardsTitle;
   #awardsYear;
   #awardsNumber;
@@ -27,9 +27,15 @@ class DoubanParser {
   #categoriesTitle;
   #winners;
   #categoriesNumber;
+  // 私有实例字段：影人页面解析中间变量
+  #positionName;
+  #celebritiesNumber;
+  #celebrityList;
+  #celebrityName;
+  #celebrityListNumber;
 
-  // 静态私有方法 生成条目页面解析模板：调用时需动态绑定 this
-  static #entryPageParserGen() {
+  // 静态公有方法 生成条目页面解析模板：调用时需动态绑定 this
+  static entryPageParserGen() {
     return {
       element: [
         {
@@ -460,8 +466,8 @@ class DoubanParser {
     };
   }
 
-  // 静态私有方法 生成获奖页面解析模板：调用时需动态绑定 this
-  static #awardsPageParserGen() {
+  // 静态公有方法 生成获奖页面解析模板：调用时需动态绑定 this
+  static awardsPageParserGen() {
     // 获奖项人员收尾辅助函数
     const windupWinners = () => {
       this.#categories[this.#categoriesNumber].winners = this.#winners
@@ -488,12 +494,10 @@ class DoubanParser {
               this.awards = [];
               this.#awardsTitle = "";
               this.#awardsNumber = 0;
-            } else {
-              if (this.#awardsTitle === "") {
-                windupWinners();
-                windupCategories();
-                ++this.#awardsNumber;
-              }
+            } else if (this.#awardsTitle === "") {
+              windupWinners();
+              windupCategories();
+              ++this.#awardsNumber;
             }
             this.#awardsTitle += text.text;
             if (text.lastInTextNode) {
@@ -569,8 +573,107 @@ class DoubanParser {
     };
   }
 
-  // 静态私有方法 生成影人页面解析模板：调用时需动态绑定 this
-  static #celebritiesPageParserGen() {}
+  // 静态公有方法 生成影人页面解析模板：调用时需动态绑定 this
+  static celebritiesPageParserGen() {
+    // 影人列表收尾辅助函数
+    const windupCelebrityList = () => {
+      this.celebrities[
+        this.#celebritiesNumber
+      ].celebrityList = this.#celebrityList;
+      this.#celebrityList = undefined;
+    };
+    return {
+      element: [
+        {
+          // 影人大类名称
+          selector: "#celebrities>div.list-wrapper>h2",
+          target: "text",
+          handler: (text) => {
+            if (typeof this.celebrities === "undefined") {
+              this.celebrities = [];
+              this.#positionName = "";
+              this.#celebritiesNumber = 0;
+            } else if (this.#positionName === "") {
+              windupCelebrityList();
+              ++this.#celebritiesNumber;
+            }
+            this.#positionName += text.text;
+            if (text.lastInTextNode) {
+              const [
+                positionChinese,
+                positionForeign,
+              ] = this.#positionName.match(/([^ ]*)(?:$| )(.*)/).slice(1, 3);
+              this.celebrities.push({
+                position: {
+                  chinese: positionChinese || null,
+                  foreign: positionForeign || null,
+                },
+              });
+              this.#positionName = "";
+            }
+          },
+        },
+        {
+          // 影人名称
+          selector: "#celebrities>div.list-wrapper li.celebrity>.info>.name",
+          target: "text",
+          handler: (text) => {
+            if (typeof this.#celebrityList === "undefined") {
+              this.#celebrityList = [];
+              this.#celebrityName = "";
+              this.#celebrityListNumber = 0;
+            }
+            this.#celebrityName += text.text;
+            if (text.lastInTextNode) {
+              let [nameChinese, nameForeign] = this.#celebrityName
+                .match(/([^ ]*)(?:$| )(.*)/)
+                .slice(1, 3);
+              if (!/[\u4E00-\u9FCC]/.test(nameChinese)) {
+                nameForeign = nameChinese + " " + nameForeign;
+                nameChinese = null;
+              }
+              this.#celebrityList.push({
+                name: {
+                  chinese: nameChinese || null,
+                  foreign: nameForeign || null,
+                },
+              });
+              this.#celebrityName = "";
+            }
+          },
+        },
+        {
+          // 影人职位名称、角色名称
+          selector: "#celebrities>div.list-wrapper li.celebrity>.info>.role",
+          target: "element",
+          handler: (el) => {
+            const [titleChinese, titleForeign, role] = el
+              .getAttribute("title")
+              .match(/([^ ]*)(?:$| )([^(]*)(?:$| )(.*)/)
+              .slice(1, 4);
+            Object.assign(this.#celebrityList[this.#celebrityListNumber], {
+              title: {
+                chinese: titleChinese || null,
+                foreign: titleForeign || null,
+              },
+              role: role.replace(/[()]/g, "") || null,
+            });
+            ++this.#celebrityListNumber;
+          },
+        },
+      ],
+      document: {
+        // 后处理收尾
+        end: (end) => {
+          if (typeof this.celebrities === "undefined") {
+            this.celebrities = [];
+          } else {
+            windupCelebrityList();
+          }
+        },
+      },
+    };
+  }
 
   // 静态私有方法 解析页面：根据解析模板解析页面
   static async #parsePage(resp, parser) {
@@ -590,42 +693,29 @@ class DoubanParser {
     this.#headers = headers;
   }
 
-  // 公有实例方法 初始化函数：解析页面并向实例字段赋值（待拆分）
-  async init() {
-    let entryPagePromise = this.#requestPage();
-    // let celebritiesPagePromise = this.#requestPage('celebrities');
-    let awardsPagePromise = this.#requestPage("awards");
-
-    let resp = await entryPagePromise;
-
+  // 公有实例方法 请求并解析数据：请求并解析页面，并向实例字段赋值
+  async requestAndParsePage(type = "entry") {
+    let resp = await this.#requestPage(type);
     if (resp.ok) {
       await DoubanParser.#parsePage(
         resp,
-        DoubanParser.#entryPageParserGen.apply(this)
+        DoubanParser[`${type}PageParserGen`].apply(this)
       );
-      if (this.#firstSeasonDoubanID !== null) {
+      if (type === "entry" && this.#firstSeasonDoubanID !== null) {
         const doubanItem = new DoubanParser(
           this.#firstSeasonDoubanID,
           this.#headers
         );
-        await doubanItem.init();
+        await doubanItem.requestAndParsePage(type);
         this.imdbID = doubanItem.imdbID;
       }
-    }
-
-    resp = await awardsPagePromise;
-    if (resp.ok) {
-      await DoubanParser.#parsePage(
-        resp,
-        DoubanParser.#awardsPageParserGen.apply(this)
-      );
     }
   }
 
   // 私有实例方法 请求页面：请求相关页面
-  async #requestPage(type = "") {
+  async #requestPage(type = "entry") {
     let pageURL = `https://movie.douban.com/subject/${this.doubanID}/`;
-    return await fetch((pageURL += type), {
+    return await fetch((pageURL += type === "entry" ? "" : type), {
       headers: this.#headers,
       /*
       cf: {

@@ -41,7 +41,11 @@ async function handleRequest(request) {
     };
     if (/^\d+$/.test(id)) {
       const doubanItem = new DoubanParser(id, reqHeaders);
-      await doubanItem.init();
+      await Promise.all(
+        ["entry", "celebrities", "awards"].map((p) =>
+          doubanItem.requestAndParsePage(p)
+        )
+      );
       respBody = JSON.stringify({
         poster: doubanItem.poster,
         title: doubanItem.title,
@@ -58,13 +62,10 @@ async function handleRequest(request) {
         episodeCount: doubanItem.episodeCount,
         tags: doubanItem.tags,
         description: doubanItem.description,
+        celebrities: doubanItem.celebrities,
         awards: doubanItem.awards,
       });
     } else {
-      respBody = JSON.stringify({
-        status: false,
-        error: "Douban ID format error, pure digits are expected",
-      });
     }
   } else if ("/favicon.ico" === pathName) {
   }
