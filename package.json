@@ -1,7 +1,7 @@
 {
   "name": "info",
   "version": "0.0.1",
-  "description": "MoveInfoGen on Cloudflare Worker",
+  "description": "MASGInfoGen on Cloudflare Worker",
   "main": "index.js",
   "scripts": {
     "build": "wrangler build",
