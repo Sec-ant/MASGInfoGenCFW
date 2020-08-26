@@ -1,13 +1,15 @@
-# MediaInfoGenCFW
+# MASGInfoGenCFW
 
-部署在 Cloudflare Workers 上的 MediaInfoGen API，仍然在缓慢开发中……
+部署在 Cloudflare Workers 上的 MASGInfoGen API，仍然在缓慢开发中……
+
+**MASG**: **M**ovie/**M**usic | **Anime** | **Series** | **Game**
 
 ## 开发环境准备
 
 1. 注册 [Cloudflare 账户](https://dash.cloudflare.com/sign-up/workers)
 2. 安装 [Node.js](https://nodejs.org/en/)
 3. 安装用于生成 Cloudflare Workers 后端 js 代码并部署所需的 CLI 工具 [Wrangler](https://developers.cloudflare.com/workers/cli-wrangler/install-update)
-4. 克隆本仓库到本地：`git clone git@github.com:Sec-ant/MediaInfoGenCFW.git`
+4. 克隆本仓库到本地：`git clone git@github.com:Sec-ant/MASGInfoGenCFW.git`
 5. 在项目文件夹下运行 `npm install` 安装依赖，依赖包括：
    - [Babel](https://github.com/babel/babel): 用于支持 Javascript [Class 相关实验性功能](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Classes/Class_elements)
       - [Babel Loader](https://github.com/babel/babel-loader)
