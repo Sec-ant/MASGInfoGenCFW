@@ -22,8 +22,9 @@
 
 ## 开发
 
-1. 按照需要修改根目录的 `index.js` 文件
-2. 通过 Wrangler 构建、预览和部署
+1. API 业务逻辑开发请修改根目录的 `index.js` 文件
+2. 站点页面解析自定义类都在 `libs` 文件夹
+3. 通过 Wrangler 构建、预览和部署
    ```
    wrangler build
    wrangler preview
