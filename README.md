@@ -2,7 +2,7 @@
 
 部署在 Cloudflare Workers 上的 MASGInfoGen API，仍然在缓慢开发中……
 
-**MASG**: **M**ovie/**M**usic | **Anime** | **Series** | **Game**
+**MASG**: **M**ovie/**M**usic | **A**nime | **S**eries | **G**ame
 
 ## 开发环境准备
 
