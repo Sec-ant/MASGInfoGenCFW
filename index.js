@@ -60,9 +60,9 @@ async function handleRequest(request) {
         durations: doubanItem.durations,
         episodeDuration: doubanItem.episodeDuration,
         episodeCount: doubanItem.episodeCount,
+        celebrities: doubanItem.celebrities,
         tags: doubanItem.tags,
         description: doubanItem.description,
-        celebrities: doubanItem.celebrities,
         awards: doubanItem.awards,
       });
     } else {
