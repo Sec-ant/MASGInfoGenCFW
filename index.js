@@ -40,30 +40,30 @@ async function handleRequest(request) {
       cookie: searchParams.get("cookie") || incomeHeaders.get("cookie"),
     };
     if (/^\d+$/.test(id)) {
-      const doubanItem = new DoubanParser(id, reqHeaders);
+      const doubanEntry = new DoubanParser(id, reqHeaders);
       await Promise.all(
         ["entry", "celebrities", "awards"].map((p) =>
-          doubanItem.requestAndParsePage(p)
+          doubanEntry.requestAndParsePage(p)
         )
       );
       respBody = JSON.stringify({
-        poster: doubanItem.poster,
-        title: doubanItem.title,
-        year: doubanItem.year,
-        regions: doubanItem.regions,
-        genres: doubanItem.genres,
-        languages: doubanItem.languages,
-        releaseDates: doubanItem.releaseDates,
-        imdbID: doubanItem.imdbID,
-        doubanRating: doubanItem.doubanRating,
-        doubanID: doubanItem.doubanID,
-        durations: doubanItem.durations,
-        episodeDuration: doubanItem.episodeDuration,
-        episodeCount: doubanItem.episodeCount,
-        celebrities: doubanItem.celebrities,
-        tags: doubanItem.tags,
-        description: doubanItem.description,
-        awards: doubanItem.awards,
+        poster: doubanEntry.poster,
+        title: doubanEntry.title,
+        year: doubanEntry.year,
+        regions: doubanEntry.regions,
+        genres: doubanEntry.genres,
+        languages: doubanEntry.languages,
+        releaseDates: doubanEntry.releaseDates,
+        imdbID: doubanEntry.imdbID,
+        doubanRating: doubanEntry.doubanRating,
+        doubanID: doubanEntry.doubanID,
+        durations: doubanEntry.durations,
+        episodeDuration: doubanEntry.episodeDuration,
+        episodeCount: doubanEntry.episodeCount,
+        celebrities: doubanEntry.celebrities,
+        tags: doubanEntry.tags,
+        description: doubanEntry.description,
+        awards: doubanEntry.awards,
       });
     } else {
     }
