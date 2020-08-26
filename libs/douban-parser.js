@@ -693,7 +693,7 @@ class DoubanParser {
     this.#headers = headers;
   }
 
-  // 公有实例方法 请求并解析数据：请求并解析页面，并向实例字段赋值
+  // 公有实例方法 请求并解析页面，并向实例字段赋值
   async requestAndParsePage(type = "entry") {
     let resp = await this.#requestPage(type);
     if (resp.ok) {
@@ -710,6 +710,13 @@ class DoubanParser {
         this.imdbID = doubanItem.imdbID;
       }
     }
+  }
+
+  // 公有实例方法 请求并解析所有页面，并向实例字段赋值
+  async init() {
+    return await Promise.all(
+      ["entry", "celebrities", "awards"].map((p) => this.requestAndParsePage(p))
+    );
   }
 
   // 私有实例方法 请求页面：请求相关页面

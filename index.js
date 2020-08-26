@@ -1,4 +1,5 @@
 const DoubanParser = require("./libs/douban-parser.js");
+const IMDbParser = require("./libs/imdb-parser.js");
 /**
  * Cloudflare Worker entrypoint
  */
@@ -22,7 +23,7 @@ function addComma(number) {
   return parts.join(".");
 }
 
-// 生成响应
+// 生成响应（目前仅供测试解析是否正常，并非实际的 API 响应格式）
 async function handleRequest(request) {
   const incomeURL = new URL(request.url);
   const pathName = incomeURL.pathname;
@@ -41,11 +42,12 @@ async function handleRequest(request) {
     };
     if (/^\d+$/.test(id)) {
       const doubanEntry = new DoubanParser(id, reqHeaders);
-      await Promise.all(
-        ["entry", "celebrities", "awards"].map((p) =>
-          doubanEntry.requestAndParsePage(p)
-        )
-      );
+      await doubanEntry.init();
+      let imdbEntry;
+      if (doubanEntry.imdbID) {
+        imdbEntry = new IMDbParser(doubanEntry.imdbID);
+        await imdbEntry.init();
+      }
       respBody = JSON.stringify({
         poster: doubanEntry.poster,
         title: doubanEntry.title,
@@ -54,6 +56,7 @@ async function handleRequest(request) {
         genres: doubanEntry.genres,
         languages: doubanEntry.languages,
         releaseDates: doubanEntry.releaseDates,
+        imdbRating: (imdbEntry ? imdbEntry.imdbRating : undefined) || undefined,
         imdbID: doubanEntry.imdbID,
         doubanRating: doubanEntry.doubanRating,
         doubanID: doubanEntry.doubanID,
