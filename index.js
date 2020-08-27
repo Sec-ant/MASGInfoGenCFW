@@ -67,6 +67,12 @@ async function handleRequest(request) {
           }
         })(),
       ]);
+      if (doubanEntry.year !== mtimeEntry.year) {
+        mtimeEntry = {
+          mtimeID: null,
+          behindTheScene: null,
+        };
+      }
       respBody = JSON.stringify({
         poster: doubanEntry.poster,
         title: doubanEntry.title,

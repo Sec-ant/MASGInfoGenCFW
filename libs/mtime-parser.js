@@ -54,6 +54,13 @@ class MtimeParser {
     return {
       element: [
         {
+          selector: ".db_year>a",
+          target: "element",
+          handler: (el) => {
+            this.year = Number(el.getAttribute("href").match(/\d+$/)[0]);
+          },
+        },
+        {
           selector: ".revealed_modle",
           target: "element",
           handler: (el) => {
@@ -160,6 +167,9 @@ class MtimeParser {
       ],
       document: {
         end: (end) => {
+          if (typeof this.year === "undefined") {
+            this.year = null;
+          }
           if (typeof this.behindTheScene === "undefined") {
             this.behindTheScene = [];
           } else {

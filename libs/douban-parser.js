@@ -785,8 +785,8 @@ class DoubanParser {
           if (resultsJson.error) {
             this.#mtimeID = null;
           } else {
-            let result = resultsJson.value.find((r) => {
-              let YE = r.Year == this.year;
+            let interestResults = resultsJson.value.filter((r) => {
+              let YE = Number(r.Year) <= this.year;
               let TE = this.#chineseTitle.includes(r.TitleCn);
               if (
                 this.#originalTitle &&
@@ -796,6 +796,9 @@ class DoubanParser {
               }
               return YE && TE;
             });
+            let result =
+              interestResults.find((r) => Number(r.Year) === this.year) ||
+              interestResults.find((r) => Number(r.Year) < this.year);
             if (result) {
               this.#mtimeID = "" + result.MovieId;
             } else {
