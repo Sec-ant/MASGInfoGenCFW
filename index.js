@@ -13,10 +13,7 @@ const VERSION = "0.0.1";
 const TIMEOUT = 6000;
 
 // 辅助函数
-/**
- * Add commas to number
- * @param {Number} number
- */
+// 添加数字位逗号分隔符
 function addComma(number) {
   let parts = number.toString().split("");
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -43,11 +40,13 @@ async function handleRequest(request) {
     if (/^\d+$/.test(id)) {
       const doubanEntry = new DoubanParser(id, reqHeaders);
       await doubanEntry.init();
-      let imdbEntry;
-      if (doubanEntry.imdbID) {
-        imdbEntry = new IMDbParser(doubanEntry.imdbID);
+      let imdbID, imdbEntry;
+      imdbID = await doubanEntry.imdbID;
+      if (imdbID) {
+        imdbEntry = new IMDbParser(imdbID);
         await imdbEntry.init();
       }
+      let mtimeID = await doubanEntry.mtimeID;
       respBody = JSON.stringify({
         poster: doubanEntry.poster,
         title: doubanEntry.title,
@@ -56,10 +55,11 @@ async function handleRequest(request) {
         genres: doubanEntry.genres,
         languages: doubanEntry.languages,
         releaseDates: doubanEntry.releaseDates,
-        imdbRating: (imdbEntry ? imdbEntry.imdbRating : undefined) || undefined,
-        imdbID: doubanEntry.imdbID,
+        imdbRating: (imdbEntry ? imdbEntry.imdbRating : null) || null,
+        imdbID: imdbID,
         doubanRating: doubanEntry.doubanRating,
         doubanID: doubanEntry.doubanID,
+        mtimeID: mtimeID,
         durations: doubanEntry.durations,
         episodeDuration: doubanEntry.episodeDuration,
         episodeCount: doubanEntry.episodeCount,

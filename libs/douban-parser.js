@@ -33,6 +33,9 @@ class DoubanParser {
   #celebrityList;
   #celebrityName;
   #celebrityListNumber;
+  //
+  #imdbID;
+  #mtimeID;
 
   // 静态公有方法 生成条目页面解析模板：调用时需动态绑定 this
   static entryPageParserGen() {
@@ -162,7 +165,7 @@ class DoubanParser {
           selector: '#info a[href^="https://www.imdb.com/title/tt"]',
           target: "element",
           handler: (el) => {
-            this.imdbID = el.getAttribute("href").match(/tt(\d+)/)[1];
+            this.#imdbID = el.getAttribute("href").match(/tt(\d+)/)[1];
           },
         },
         {
@@ -417,8 +420,8 @@ class DoubanParser {
           if (typeof this.#firstSeasonDoubanID === "undefined") {
             this.#firstSeasonDoubanID = null;
           }
-          if (typeof this.imdbID === "undefined") {
-            this.imdbID = null;
+          if (typeof this.#imdbID === "undefined") {
+            this.#imdbID = null;
           }
           if (typeof this.tags === "undefined") {
             this.tags = [];
@@ -711,12 +714,69 @@ class DoubanParser {
           this.#headers
         );
         await doubanItem.requestAndParsePage(type);
-        this.imdbID = doubanItem.imdbID;
+        this.#imdbID = await doubanItem.imdbID;
       }
     }
   }
 
-  // 公有实例方法 请求并解析所有页面，并向实例字段赋值
+  // 获取 IMDb ID
+  get imdbID() {
+    return (async () => {
+      if (typeof this.#imdbID === "undefined") {
+        await this.requestAndParsePage();
+      }
+      return this.#imdbID;
+    })();
+  }
+
+  // 获取时光网 ID
+  get mtimeID() {
+    return (async () => {
+      if (typeof this.#mtimeID === "undefined") {
+        let resp = await this.#mtimeSearch();
+        if (resp.ok) {
+          let resultsJson = await resp.json();
+          if (resultsJson.error) {
+            this.#mtimeID = null;
+          } else {
+            let result = resultsJson.value.find(
+              (r) =>
+                this.#chineseTitle.includes(r.TitleCn) && r.Year == this.year
+            );
+            if (result) {
+              this.#mtimeID = result.MovieId;
+            } else {
+              this.#mtimeID = null;
+            }
+          }
+        } else {
+          this.#mtimeID = null;
+        }
+      }
+      return this.#mtimeID;
+    })();
+  }
+
+  // 搜索时光网
+  async #mtimeSearch(count = 10) {
+    return await fetch("http://my.mtime.com/Service/Movie.mc", {
+      method: "post",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "user-agent": "/",
+        host: "my.mtime.com",
+      },
+      body: [
+        "Ajax_CallBack=true",
+        "Ajax_CallBackType=Mtime.MemberCenter.Pages.MovieService",
+        "Ajax_CallBackMethod=GetSearchMoviesByTitle",
+        `Ajax_CallBackArgument0=${encodeURIComponent(this.#chineseTitle)}`,
+        `Ajax_CallBackArgument1=${count}`,
+      ].join("&"),
+    });
+  }
+
+  // 公有实例方法 初始化
   async init() {
     return await Promise.all(
       ["entry", "celebrities", "awards"].map((p) => this.requestAndParsePage(p))
@@ -726,7 +786,22 @@ class DoubanParser {
   // 私有实例方法 请求页面：请求相关页面
   async #requestPage(type = "entry") {
     let pageURL = `https://movie.douban.com/subject/${this.doubanID}/`;
-    return await fetch((pageURL += type === "entry" ? "" : type), {
+    let typeString;
+    switch (type) {
+      case "entry":
+        typeString = "";
+        break;
+      case "celebrities":
+        typeString = type;
+        break;
+      case "awards":
+        typeString = type + "/";
+        break;
+      default:
+        typeString = type;
+        break;
+    }
+    return await fetch(pageURL + typeString, {
       headers: this.#headers,
       /*
       cf: {

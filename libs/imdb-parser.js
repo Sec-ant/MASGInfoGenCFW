@@ -1,11 +1,12 @@
 // 类定义
 class IMDbParser {
+  #doubanID;
   // 构造函数
   constructor(id) {
     this.imdbID = id;
   }
 
-  // 公有实例方法 初始化函数
+  // 公有实例方法 初始化
   async init() {
     return await this.requestAndParseRating();
   }
@@ -16,6 +17,29 @@ class IMDbParser {
     if (resp.ok) {
       await this.#parseRating(resp);
     }
+  }
+
+  // 获取豆瓣 ID
+  get doubanID() {
+    return (async () => {
+      if (typeof this.#doubanID === "undefined") {
+        let resp = await this.#doubanSearch();
+        if (resp.ok) {
+          let results = await resp.json();
+          this.#doubanID = (results[0] || { id: null }).id;
+        } else {
+          this.#doubanID = null;
+        }
+      }
+      return this.#doubanID;
+    })();
+  }
+
+  // 搜索豆瓣
+  async #doubanSearch() {
+    return await fetch(
+      `https://movie.douban.com/j/subject_suggest?q=tt${this.imdbID}`
+    );
   }
 
   // 私有实例方法 解析评分
