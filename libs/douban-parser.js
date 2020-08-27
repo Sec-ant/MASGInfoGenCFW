@@ -350,7 +350,11 @@ class DoubanParser {
       document: {
         // 后处理收尾
         end: (end) => {
-          if (this.#COTitlesSame && /中国/.test(this.regions[0])) {
+          if (
+            this.#akaTitles &&
+            this.#COTitlesSame &&
+            /中国/.test(this.regions[0])
+          ) {
             this.#transTitle = this.#akaTitles.find((title) =>
               /[a-z]/i.test(title)
             );
