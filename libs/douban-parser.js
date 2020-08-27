@@ -109,7 +109,7 @@ class DoubanParser {
             }
             this.year += text.text;
             if (text.lastInTextNode) {
-              this.year = this.year.slice(1, -1);
+              this.year = Number(this.year.slice(1, -1));
             }
           },
         },
@@ -744,7 +744,7 @@ class DoubanParser {
                 this.#chineseTitle.includes(r.TitleCn) && r.Year == this.year
             );
             if (result) {
-              this.#mtimeID = result.MovieId;
+              this.#mtimeID = "" + result.MovieId;
             } else {
               this.#mtimeID = null;
             }
