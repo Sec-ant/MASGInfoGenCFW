@@ -1,5 +1,6 @@
 const DoubanParser = require("./libs/douban-parser.js");
 const IMDbParser = require("./libs/imdb-parser.js");
+const MtimeParser = require("./libs/mtime-parser.js");
 /**
  * Cloudflare Worker entrypoint
  */
@@ -40,13 +41,32 @@ async function handleRequest(request) {
     if (/^\d+$/.test(id)) {
       const doubanEntry = new DoubanParser(id, reqHeaders);
       await doubanEntry.init();
-      let imdbID, imdbEntry;
-      imdbID = await doubanEntry.imdbID;
-      if (imdbID) {
-        imdbEntry = new IMDbParser(imdbID);
-        await imdbEntry.init();
-      }
-      let mtimeID = await doubanEntry.mtimeID;
+      let [mtimeEntry, imdbEntry] = await Promise.all([
+        (async () => {
+          let mtimeID = await doubanEntry.mtimeID;
+          if (mtimeID) {
+            let mtimeEntry = new MtimeParser(mtimeID);
+            return mtimeEntry.init();
+          } else {
+            return {
+              mtimeID: null,
+              behindTheScene: [],
+            };
+          }
+        })(),
+        (async () => {
+          let imdbID = await doubanEntry.imdbID;
+          if (imdbID) {
+            let imdbEntry = new IMDbParser(imdbID);
+            return imdbEntry.init();
+          } else {
+            return {
+              imdbID: null,
+              imdbRating: null,
+            };
+          }
+        })(),
+      ]);
       respBody = JSON.stringify({
         poster: doubanEntry.poster,
         title: doubanEntry.title,
@@ -55,11 +75,11 @@ async function handleRequest(request) {
         genres: doubanEntry.genres,
         languages: doubanEntry.languages,
         releaseDates: doubanEntry.releaseDates,
-        imdbRating: (imdbEntry ? imdbEntry.imdbRating : null) || null,
-        imdbID: imdbID,
+        imdbRating: imdbEntry.imdbRating,
+        imdbID: imdbEntry.imdbID,
         doubanRating: doubanEntry.doubanRating,
         doubanID: doubanEntry.doubanID,
-        mtimeID: mtimeID,
+        mtimeID: mtimeEntry.mtimeID,
         durations: doubanEntry.durations,
         episodeDuration: doubanEntry.episodeDuration,
         episodeCount: doubanEntry.episodeCount,
@@ -67,6 +87,7 @@ async function handleRequest(request) {
         tags: doubanEntry.tags,
         description: doubanEntry.description,
         awards: doubanEntry.awards,
+        mtimeBehindTheScene: mtimeEntry.behindTheScene,
       });
     } else {
     }
