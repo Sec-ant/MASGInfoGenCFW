@@ -194,7 +194,16 @@ class MtimeParser {
         typeString = type + ".html";
         break;
     }
-    return await fetch(pageURL + typeString);
+    return await fetch(pageURL + typeString, {
+      cf: {
+        cacheKey: `i:${this.mtimeID},t:${type}`,
+        cacheTtlByStatus: {
+          "200-299": 1296000,
+          404: 1,
+          "500-509": 1,
+        },
+      },
+    });
   }
 
   // 静态私有方法 解析页面：根据解析模板解析页面

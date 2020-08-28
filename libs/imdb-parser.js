@@ -11,7 +11,16 @@ class IMDbParser {
   // 私有实例方法 请求评分：从接口获取 IMDb 评分
   async #requestRating() {
     let ratingURL = `https://p.media-imdb.com/static-content/documents/v1/title/tt${this.imdbID}/ratings%3Fjsonp=imdb.rating.run:imdb.api.title.ratings/data.json`;
-    return await fetch(ratingURL);
+    return await fetch(ratingURL, {
+      cf: {
+        cacheKey: `i:${this.imdbID}`,
+        cacheTtlByStatus: {
+          "200-299": 43200,
+          404: 1,
+          "500-509": 1,
+        },
+      },
+    });
   }
 
   // 私有实例方法 解析评分：解析 IMDb 评分对象并向实例字段赋值
@@ -57,7 +66,17 @@ class IMDbParser {
   // 搜索豆瓣
   async #doubanSearch() {
     return await fetch(
-      `https://movie.douban.com/j/subject_suggest?q=tt${this.imdbID}`
+      `https://movie.douban.com/j/subject_suggest?q=tt${this.imdbID}`,
+      {
+        cf: {
+          cacheKey: `i:${this.imdbID}`,
+          cacheTtlByStatus: {
+            "200-299": 1296000,
+            404: 1,
+            "500-509": 1,
+          },
+        },
+      }
     );
   }
 }

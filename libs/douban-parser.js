@@ -708,17 +708,16 @@ class DoubanParser {
     }
     return await fetch(pageURL + typeString, {
       headers: this.#headers,
-      /*
-        cf: {
-          minify: {
-            javascript: true,
-            css: true,
-            html: false,
-          },
-          cacheKey: type + (this.headers.cookie || "").trim() + this.doubanID,
-          cacheTtl: 43200,
+      cf: {
+        cacheKey: `i:${this.doubanID},t:${type},c:${/(?<=dbcl2=").+(?=";)/.test(
+          this.#headers.cookie
+        )}`,
+        cacheTtlByStatus: {
+          "200-299": 43200,
+          404: 1,
+          "500-509": 1,
         },
-        */
+      },
     });
   }
 
@@ -815,21 +814,32 @@ class DoubanParser {
 
   // 搜索时光网
   async #mtimeSearch(count = 5) {
-    return await fetch("http://my.mtime.com/Service/Movie.mc", {
-      method: "post",
-      headers: {
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "user-agent": "/",
-        host: "my.mtime.com",
-      },
-      body: [
-        "Ajax_CallBack=true",
-        "Ajax_CallBackType=Mtime.MemberCenter.Pages.MovieService",
-        "Ajax_CallBackMethod=GetSearchMoviesByTitle",
-        `Ajax_CallBackArgument0=${encodeURIComponent(this.#chineseTitle)}`,
-        `Ajax_CallBackArgument1=${count}`,
-      ].join("&"),
-    });
+    return await fetch(
+      "http://my.mtime.com/Service/Movie.mc?" +
+        [
+          "Ajax_CallBack=true",
+          "Ajax_CallBackType=Mtime.MemberCenter.Pages.MovieService",
+          "Ajax_CallBackMethod=GetSearchMoviesByTitle",
+          `Ajax_CallBackArgument0=${encodeURIComponent(this.#chineseTitle)}`,
+          `Ajax_CallBackArgument1=${count}`,
+        ].join("&"),
+      {
+        method: "get",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "user-agent": "/",
+          host: "my.mtime.com",
+        },
+        cf: {
+          cacheKey: `t:${this.#chineseTitle},c:${count}`,
+          cacheTtlByStatus: {
+            "200-299": 1296000,
+            404: 1,
+            "500-509": 1,
+          },
+        },
+      }
+    );
   }
 }
 module.exports = DoubanParser;
