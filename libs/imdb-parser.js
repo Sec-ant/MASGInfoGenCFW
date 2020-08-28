@@ -1,26 +1,28 @@
 // 类定义
 class IMDbParser {
+  // 私有实例字段：隐私信息
+  #cache;
   // 私有实例字段：其他数据库 ID
   #doubanID;
 
   // 构造函数：创建实例
-  constructor(id) {
+  constructor(id, cache) {
     this.imdbID = id;
+    this.#cache = cache;
+  }
+
+  #getRequestRatingURL() {
+    return `https://p.media-imdb.com/static-content/documents/v1/title/tt${this.imdbID}/ratings%3Fjsonp=imdb.rating.run:imdb.api.title.ratings/data.json`;
   }
 
   // 私有实例方法 请求评分：从接口获取 IMDb 评分
-  async #requestRating() {
-    let ratingURL = `https://p.media-imdb.com/static-content/documents/v1/title/tt${this.imdbID}/ratings%3Fjsonp=imdb.rating.run:imdb.api.title.ratings/data.json`;
-    return await fetch(ratingURL, {
-      cf: {
-        cacheKey: `i:${this.imdbID}`,
-        cacheTtlByStatus: {
-          "200-299": 43200,
-          404: 1,
-          "500-509": 1,
-        },
-      },
-    });
+  async #requestRating(requestRatingURL) {
+    let resp = await this.#cache.match(requestRatingURL);
+    if (resp) {
+      return [resp, true];
+    } else {
+      return [await fetch(requestRatingURL), false];
+    }
   }
 
   // 私有实例方法 解析评分：解析 IMDb 评分对象并向实例字段赋值
@@ -35,9 +37,23 @@ class IMDbParser {
 
   // 公有实例方法 请求并解析评分：请求、解析并向实例字段赋值
   async requestAndParseRating() {
-    let resp = await this.#requestRating();
+    const requestRatingURL = this.#getRequestRatingURL();
+    let [resp, isCached] = await this.#requestRating(requestRatingURL);
     if (resp.ok) {
-      await this.#parseRating(resp);
+      let putCache;
+      let respClone = resp.clone();
+      if (!isCached) {
+        let newResp = new Response(resp.body, resp);
+        newResp.headers.delete("Set-Cookie");
+        newResp.headers.delete("Vary");
+        newResp.headers.set(
+          "Cache-Control",
+          ["public", "max-age=43200", "stale", "must-revalidate"].join(",")
+        );
+        putCache = this.#cache.put(requestRatingURL, newResp);
+      }
+      await this.#parseRating(respClone);
+      await putCache;
     }
   }
 

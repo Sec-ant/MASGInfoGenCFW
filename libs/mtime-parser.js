@@ -1,6 +1,8 @@
 const he = require("he");
 // 类定义
 class MtimeParser {
+  // 私有实例字段：隐私信息
+  #cache;
   // 私有实例字段：幕后页面解析中间变量
   #behindTheSceneType;
   #behindTheSceneNumber;
@@ -9,8 +11,9 @@ class MtimeParser {
   #behindTheSceneItem;
 
   // 构造函数：创建实例
-  constructor(id) {
+  constructor(id, cache) {
     this.mtimeID = id;
+    this.#cache = cache;
   }
 
   // 静态公有方法 生成幕后页面解析模板：调用时需动态绑定 this
@@ -182,8 +185,7 @@ class MtimeParser {
     };
   }
 
-  // 私有实例方法 请求页面：请求相关页面
-  async #requestPage(type = "behindTheScene") {
+  #getRequestURL(type = "entry") {
     let pageURL = `http://movie.mtime.com/${this.mtimeID}/`;
     let typeString;
     switch (type) {
@@ -194,16 +196,17 @@ class MtimeParser {
         typeString = type + ".html";
         break;
     }
-    return await fetch(pageURL + typeString, {
-      cf: {
-        cacheKey: `i:${this.mtimeID},t:${type}`,
-        cacheTtlByStatus: {
-          "200-299": 1296000,
-          404: 1,
-          "500-509": 1,
-        },
-      },
-    });
+    return pageURL + typeString;
+  }
+
+  // 私有实例方法 请求页面：请求相关页面
+  async #requestPage(requestURL) {
+    let resp = await this.#cache.match(requestURL);
+    if (resp) {
+      return [resp, true];
+    } else {
+      return [await fetch(requestURL), false];
+    }
   }
 
   // 静态私有方法 解析页面：根据解析模板解析页面
@@ -220,12 +223,26 @@ class MtimeParser {
 
   // 公有实例方法 请求并解析页面：请求、解析并向实例字段赋值
   async requestAndParsePage(type = "behindTheScene") {
-    let resp = await this.#requestPage(type);
+    const requestURL = this.#getRequestURL(type);
+    let [resp, isCached] = await this.#requestPage(requestURL);
     if (resp.ok) {
+      let putCache;
+      let respClone = resp.clone();
+      if (!isCached) {
+        let newResp = new Response(resp.body, resp);
+        newResp.headers.delete("Set-Cookie");
+        newResp.headers.delete("Vary");
+        newResp.headers.set(
+          "Cache-Control",
+          ["public", "max-age=43200", "stale", "must-revalidate"].join(",")
+        );
+        putCache = this.#cache.put(requestURL, newResp);
+      }
       await MtimeParser.#parsePage(
-        resp,
+        respClone,
         MtimeParser[`${type}PageParserGen`].apply(this)
       );
+      await putCache;
     }
   }
 

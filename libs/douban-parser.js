@@ -3,6 +3,7 @@ const he = require("he");
 class DoubanParser {
   // 私有实例字段：隐私信息
   #headers;
+  #cache;
   // 私有实例字段：条目页面解析中间变量
   #chineseTitle;
   #originalTitle;
@@ -38,9 +39,10 @@ class DoubanParser {
   #mtimeID;
 
   // 构造函数：创建实例
-  constructor(id, headers) {
+  constructor(id, headers, cache) {
     this.doubanID = id;
     this.#headers = headers;
+    this.#cache = cache;
   }
 
   // 静态公有方法 生成条目页面解析模板：调用时需动态绑定 this
@@ -688,8 +690,8 @@ class DoubanParser {
     };
   }
 
-  // 私有实例方法 请求页面：请求相关页面
-  async #requestPage(type = "entry") {
+  //
+  #getRequestURL(type = "entry") {
     let pageURL = `https://movie.douban.com/subject/${this.doubanID}/`;
     let typeString;
     switch (type) {
@@ -706,19 +708,22 @@ class DoubanParser {
         typeString = type;
         break;
     }
-    return await fetch(pageURL + typeString, {
-      headers: this.#headers,
-      cf: {
-        cacheKey: `i:${this.doubanID},t:${type},c:${/(?<=dbcl2=").+(?=";)/.test(
-          this.#headers.cookie
-        )}`,
-        cacheTtlByStatus: {
-          "200-299": 43200,
-          404: 1,
-          "500-509": 1,
-        },
-      },
-    });
+    return pageURL + typeString;
+  }
+
+  // 私有实例方法 请求页面：请求相关页面
+  async #requestPage(requestURL) {
+    let resp = await this.#cache.match(requestURL);
+    if (resp) {
+      return [resp, true];
+    } else {
+      return [
+        await fetch(requestURL, {
+          headers: this.#headers,
+        }),
+        false,
+      ];
+    }
   }
 
   // 静态私有方法 解析页面：根据解析模板解析页面
@@ -735,10 +740,23 @@ class DoubanParser {
 
   // 公有实例方法 请求并解析页面：请求、解析并向实例字段赋值
   async requestAndParsePage(type = "entry") {
-    let resp = await this.#requestPage(type);
+    const requestURL = this.#getRequestURL(type);
+    let [resp, isCached] = await this.#requestPage(requestURL);
     if (resp.ok) {
+      let putCache;
+      let respClone = resp.clone();
+      if (!isCached) {
+        let newResp = new Response(resp.body, resp);
+        newResp.headers.delete("Set-Cookie");
+        newResp.headers.delete("Vary");
+        newResp.headers.set(
+          "Cache-Control",
+          ["public", "max-age=43200", "stale", "must-revalidate"].join(",")
+        );
+        putCache = this.#cache.put(requestURL, newResp);
+      }
       await DoubanParser.#parsePage(
-        resp,
+        respClone,
         DoubanParser[`${type}PageParserGen`].apply(this)
       );
       if (type === "entry" && this.#firstSeasonDoubanID !== null) {
@@ -749,6 +767,7 @@ class DoubanParser {
         await doubanItem.requestAndParsePage(type);
         this.#imdbID = await doubanItem.imdbID;
       }
+      await putCache;
     }
   }
 

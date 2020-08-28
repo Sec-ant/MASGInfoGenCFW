@@ -23,6 +23,7 @@ function addComma(number) {
 
 // 生成响应（目前仅供测试解析是否正常，并非实际的 API 响应格式）
 async function handleRequest(request) {
+
   const incomeURL = new URL(request.url);
   const pathName = incomeURL.pathname;
   const searchParams = incomeURL.searchParams;
@@ -33,19 +34,24 @@ async function handleRequest(request) {
     "content-type": "application/json;charset=UTF-8",
   };
 
+  // 声明缓存
+  const cache = caches.default;
+  // 检查缓存
+  // let response = await cache.match(request);
+
   if (/\/douban\/?$/.test(pathName)) {
     const id = searchParams.get("id");
     const reqHeaders = {
       cookie: searchParams.get("cookie") || incomeHeaders.get("cookie"),
     };
     if (/^\d+$/.test(id)) {
-      const doubanEntry = new DoubanParser(id, reqHeaders);
+      const doubanEntry = new DoubanParser(id, reqHeaders, cache);
       await doubanEntry.init();
       let [mtimeEntry, imdbEntry] = await Promise.all([
         (async () => {
           let mtimeID = await doubanEntry.mtimeID;
           if (mtimeID) {
-            let mtimeEntry = new MtimeParser(mtimeID);
+            let mtimeEntry = new MtimeParser(mtimeID, cache);
             return mtimeEntry.init();
           } else {
             return {
@@ -57,7 +63,7 @@ async function handleRequest(request) {
         (async () => {
           let imdbID = await doubanEntry.imdbID;
           if (imdbID) {
-            let imdbEntry = new IMDbParser(imdbID);
+            let imdbEntry = new IMDbParser(imdbID, cache);
             return imdbEntry.init();
           } else {
             return {
