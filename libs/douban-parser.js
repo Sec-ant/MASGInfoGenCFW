@@ -43,6 +43,10 @@ class DoubanParser {
     this.doubanID = id;
     this.#headers = headers;
     this.#cache = cache;
+    this.error = {
+      exists: false,
+      errors: [],
+    };
   }
 
   // 静态公有方法 生成条目页面解析模板：调用时需动态绑定 this
@@ -690,7 +694,7 @@ class DoubanParser {
     };
   }
 
-  //
+  // 公有实例方法 获取 URL
   #getRequestURL(type = "entry") {
     let pageURL = `https://movie.douban.com/subject/${this.doubanID}/`;
     let typeString;
@@ -711,18 +715,31 @@ class DoubanParser {
     return pageURL + typeString;
   }
 
-  // 私有实例方法 请求页面：请求相关页面
-  async #requestPage(requestURL) {
+  // 私有实例方法 带缓存地请求
+  async #cachedFetch(
+    requestURL,
+    init,
+    maxAge = 43200,
+    cacheCondition = (resp) => resp.ok
+  ) {
     let resp = await this.#cache.match(requestURL);
     if (resp) {
-      return [resp, true];
+      return resp;
     } else {
-      return [
-        await fetch(requestURL, {
-          headers: this.#headers,
-        }),
-        false,
-      ];
+      resp = await fetch(requestURL, init);
+      if (cacheCondition(resp)) {
+        let cloneResp = resp.clone();
+        let newResp = new Response(resp.body, resp);
+        newResp.headers.delete("Set-Cookie");
+        newResp.headers.delete("Vary");
+        newResp.headers.set(
+          "Cache-Control",
+          ["public", `max-age=${maxAge}`, "stale", "must-revalidate"].join(",")
+        );
+        await this.#cache.put(requestURL, newResp);
+        return cloneResp;
+      }
+      return resp;
     }
   }
 
@@ -741,22 +758,12 @@ class DoubanParser {
   // 公有实例方法 请求并解析页面：请求、解析并向实例字段赋值
   async requestAndParsePage(type = "entry") {
     const requestURL = this.#getRequestURL(type);
-    let [resp, isCached] = await this.#requestPage(requestURL);
+    let resp = await this.#cachedFetch(requestURL, {
+      headers: this.#headers,
+    });
     if (resp.ok) {
-      let putCache;
-      let respClone = resp.clone();
-      if (!isCached) {
-        let newResp = new Response(resp.body, resp);
-        newResp.headers.delete("Set-Cookie");
-        newResp.headers.delete("Vary");
-        newResp.headers.set(
-          "Cache-Control",
-          ["public", "max-age=43200", "stale", "must-revalidate"].join(",")
-        );
-        putCache = this.#cache.put(requestURL, newResp);
-      }
       await DoubanParser.#parsePage(
-        respClone,
+        resp,
         DoubanParser[`${type}PageParserGen`].apply(this)
       );
       if (type === "entry" && this.#firstSeasonDoubanID !== null) {
@@ -767,8 +774,15 @@ class DoubanParser {
         await doubanItem.requestAndParsePage(type);
         this.#imdbID = await doubanItem.imdbID;
       }
-      await putCache;
+    } else {
+      this.error.exists = true;
+      this.error.errors.push({
+        url: requestURL,
+        status: resp.status,
+        statusText: resp.statusText,
+      });
     }
+    return this;
   }
 
   // 公有实例方法 初始化
@@ -833,7 +847,7 @@ class DoubanParser {
 
   // 搜索时光网
   async #mtimeSearch(count = 5) {
-    return await fetch(
+    return await this.#cachedFetch(
       "http://my.mtime.com/Service/Movie.mc?" +
         [
           "Ajax_CallBack=true",
@@ -849,15 +863,8 @@ class DoubanParser {
           "user-agent": "/",
           host: "my.mtime.com",
         },
-        cf: {
-          cacheKey: `t:${this.#chineseTitle},c:${count}`,
-          cacheTtlByStatus: {
-            "200-299": 1296000,
-            404: 1,
-            "500-509": 1,
-          },
-        },
-      }
+      },
+      1296000
     );
   }
 }

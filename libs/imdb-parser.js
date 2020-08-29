@@ -9,19 +9,42 @@ class IMDbParser {
   constructor(id, cache) {
     this.imdbID = id;
     this.#cache = cache;
+    this.error = {
+      exists: false,
+      errors: [],
+    };
   }
 
+  // 公有实例方法 获取 URL
   #getRequestRatingURL() {
     return `https://p.media-imdb.com/static-content/documents/v1/title/tt${this.imdbID}/ratings%3Fjsonp=imdb.rating.run:imdb.api.title.ratings/data.json`;
   }
 
-  // 私有实例方法 请求评分：从接口获取 IMDb 评分
-  async #requestRating(requestRatingURL) {
-    let resp = await this.#cache.match(requestRatingURL);
+  // 私有实例方法 带缓存地请求
+  async #cachedFetch(
+    requestURL,
+    init,
+    maxAge = 43200,
+    cacheCondition = (resp) => resp.ok
+  ) {
+    let resp = await this.#cache.match(requestURL);
     if (resp) {
-      return [resp, true];
+      return resp;
     } else {
-      return [await fetch(requestRatingURL), false];
+      resp = await fetch(requestURL, init);
+      if (cacheCondition(resp)) {
+        let cloneResp = resp.clone();
+        let newResp = new Response(resp.body, resp);
+        newResp.headers.delete("Set-Cookie");
+        newResp.headers.delete("Vary");
+        newResp.headers.set(
+          "Cache-Control",
+          ["public", `max-age=${maxAge}`, "stale", "must-revalidate"].join(",")
+        );
+        await this.#cache.put(requestURL, newResp);
+        return cloneResp;
+      }
+      return resp;
     }
   }
 
@@ -31,6 +54,12 @@ class IMDbParser {
       const ratingJSON = JSON.parse((await resp.text()).slice(16, -1));
       this.imdbRating = ratingJSON.resource;
     } catch (err) {
+      this.error.exists = true;
+      this.error.errors.push({
+        url: resp.url,
+        status: 0,
+        statusText: err.name + ": " + err.message,
+      });
       this.imdbRating = null;
     }
   }
@@ -38,29 +67,23 @@ class IMDbParser {
   // 公有实例方法 请求并解析评分：请求、解析并向实例字段赋值
   async requestAndParseRating() {
     const requestRatingURL = this.#getRequestRatingURL();
-    let [resp, isCached] = await this.#requestRating(requestRatingURL);
+    let resp = await this.#cachedFetch(requestRatingURL);
     if (resp.ok) {
-      let putCache;
-      let respClone = resp.clone();
-      if (!isCached) {
-        let newResp = new Response(resp.body, resp);
-        newResp.headers.delete("Set-Cookie");
-        newResp.headers.delete("Vary");
-        newResp.headers.set(
-          "Cache-Control",
-          ["public", "max-age=43200", "stale", "must-revalidate"].join(",")
-        );
-        putCache = this.#cache.put(requestRatingURL, newResp);
-      }
-      await this.#parseRating(respClone);
-      await putCache;
+      await this.#parseRating(resp);
+    } else {
+      this.error.exists = true;
+      this.error.errors.push({
+        url: requestURL,
+        status: resp.status,
+        statusText: resp.statusText,
+      });
     }
+    return this;
   }
 
   // 公有实例方法 初始化
   async init() {
-    await this.requestAndParseRating();
-    return this;
+    return this.requestAndParseRating();
   }
 
   // 获取豆瓣 ID Promise
@@ -81,18 +104,8 @@ class IMDbParser {
 
   // 搜索豆瓣
   async #doubanSearch() {
-    return await fetch(
-      `https://movie.douban.com/j/subject_suggest?q=tt${this.imdbID}`,
-      {
-        cf: {
-          cacheKey: `i:${this.imdbID}`,
-          cacheTtlByStatus: {
-            "200-299": 1296000,
-            404: 1,
-            "500-509": 1,
-          },
-        },
-      }
+    return await this.#cachedFetch(
+      `https://movie.douban.com/j/subject_suggest?q=tt${this.imdbID}`
     );
   }
 }

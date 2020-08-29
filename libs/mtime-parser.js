@@ -14,6 +14,10 @@ class MtimeParser {
   constructor(id, cache) {
     this.mtimeID = id;
     this.#cache = cache;
+    this.error = {
+      exists: false,
+      errors: [],
+    };
   }
 
   // 静态公有方法 生成幕后页面解析模板：调用时需动态绑定 this
@@ -185,6 +189,7 @@ class MtimeParser {
     };
   }
 
+  // 公有实例方法 获取 URL
   #getRequestURL(type = "entry") {
     let pageURL = `http://movie.mtime.com/${this.mtimeID}/`;
     let typeString;
@@ -199,13 +204,31 @@ class MtimeParser {
     return pageURL + typeString;
   }
 
-  // 私有实例方法 请求页面：请求相关页面
-  async #requestPage(requestURL) {
+  // 私有实例方法 带缓存地请求
+  async #cachedFetch(
+    requestURL,
+    init,
+    maxAge = 43200,
+    cacheCondition = (resp) => resp.ok
+  ) {
     let resp = await this.#cache.match(requestURL);
     if (resp) {
-      return [resp, true];
+      return resp;
     } else {
-      return [await fetch(requestURL), false];
+      resp = await fetch(requestURL, init);
+      if (cacheCondition(resp)) {
+        let cloneResp = resp.clone();
+        let newResp = new Response(resp.body, resp);
+        newResp.headers.delete("Set-Cookie");
+        newResp.headers.delete("Vary");
+        newResp.headers.set(
+          "Cache-Control",
+          ["public", `max-age=${maxAge}`, "stale", "must-revalidate"].join(",")
+        );
+        await this.#cache.put(requestURL, newResp);
+        return cloneResp;
+      }
+      return resp;
     }
   }
 
@@ -224,32 +247,26 @@ class MtimeParser {
   // 公有实例方法 请求并解析页面：请求、解析并向实例字段赋值
   async requestAndParsePage(type = "behindTheScene") {
     const requestURL = this.#getRequestURL(type);
-    let [resp, isCached] = await this.#requestPage(requestURL);
+    let resp = await this.#cachedFetch(requestURL);
     if (resp.ok) {
-      let putCache;
-      let respClone = resp.clone();
-      if (!isCached) {
-        let newResp = new Response(resp.body, resp);
-        newResp.headers.delete("Set-Cookie");
-        newResp.headers.delete("Vary");
-        newResp.headers.set(
-          "Cache-Control",
-          ["public", "max-age=43200", "stale", "must-revalidate"].join(",")
-        );
-        putCache = this.#cache.put(requestURL, newResp);
-      }
       await MtimeParser.#parsePage(
-        respClone,
+        resp,
         MtimeParser[`${type}PageParserGen`].apply(this)
       );
-      await putCache;
+    } else {
+      this.error.exists = true;
+      this.error.errors.push({
+        url: requestURL,
+        status: resp.status,
+        statusText: resp.statusText,
+      });
     }
+    return this;
   }
 
   // 公有实例方法 初始化
   async init() {
-    await this.requestAndParsePage();
-    return this;
+    return this.requestAndParsePage();
   }
 }
 module.exports = MtimeParser;
