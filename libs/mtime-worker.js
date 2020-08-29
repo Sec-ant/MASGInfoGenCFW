@@ -2,36 +2,33 @@ const he = require("he");
 const XWorker = require("./x-worker.js");
 // 类定义
 class MtimeWorker extends XWorker {
-  // 私有实例字段：隐私信息
-  // 私有实例字段：幕后页面解析中间变量
-  #behindTheSceneType;
-  #behindTheSceneNumber;
-  #behindTheSceneTitle;
-  #behindTheSceneList;
-  #behindTheSceneItem;
+  // 私有实例字段：中间变量
+  #data = {};
 
   // 构造函数：创建实例
   constructor(id, cache) {
     super(cache);
-    this.mtimeID = id;
+    this.data.mtimeID = id;
   }
 
   // 静态公有方法 生成幕后页面解析模板：调用时需动态绑定 this
   static behindTheScenePageParserGen() {
     const windupBehindTheSceneTitle = () => {
-      this.behindTheScene[
-        this.#behindTheSceneNumber
-      ].title = this.#behindTheSceneTitle.trim();
-      this.#behindTheSceneTitle = "";
+      this.data.behindTheScene[
+        this.#data.behindTheSceneNumber
+      ].title = this.#data.behindTheSceneTitle.trim();
+      this.#data.behindTheSceneTitle = "";
     };
     const windupBehindTheSceneContent = () => {
-      if (typeof this.#behindTheSceneList === "undefined") {
-        this.behindTheScene[this.#behindTheSceneNumber].content = null;
+      if (typeof this.#data.behindTheSceneList === "undefined") {
+        this.data.behindTheScene[
+          this.#data.behindTheSceneNumber
+        ].content = null;
       } else {
-        this.behindTheScene[
-          this.#behindTheSceneNumber
-        ].content = this.#behindTheSceneList.join("\n");
-        this.#behindTheSceneList = undefined;
+        this.data.behindTheScene[
+          this.#data.behindTheSceneNumber
+        ].content = this.#data.behindTheSceneList.join("\n");
+        this.#data.behindTheSceneList = undefined;
       }
     };
     const contentItemSelectors = [
@@ -46,13 +43,13 @@ class MtimeWorker extends XWorker {
     );
     const windupBehindTheSceneItem = () => {
       const item = he
-        .decode(this.#behindTheSceneItem)
+        .decode(this.#data.behindTheSceneItem)
         //.replace(/　/g, " ")
         .trim();
       if (item) {
-        this.#behindTheSceneList.push(item);
+        this.#data.behindTheSceneList.push(item);
       }
-      this.#behindTheSceneItem = "";
+      this.#data.behindTheSceneItem = "";
     };
     return {
       element: [
@@ -60,22 +57,22 @@ class MtimeWorker extends XWorker {
           selector: ".db_year>a",
           target: "element",
           handler: (el) => {
-            this.year = Number(el.getAttribute("href").match(/\d+$/)[0]);
+            this.data.year = Number(el.getAttribute("href").match(/\d+$/)[0]);
           },
         },
         {
           selector: ".revealed_modle",
           target: "element",
           handler: (el) => {
-            if (typeof this.behindTheScene === "undefined") {
-              this.behindTheScene = [];
-              this.#behindTheSceneType = "";
-              this.#behindTheSceneNumber = 0;
-            } else if (this.#behindTheSceneType === "") {
+            if (typeof this.data.behindTheScene === "undefined") {
+              this.data.behindTheScene = [];
+              this.#data.behindTheSceneType = "";
+              this.#data.behindTheSceneNumber = 0;
+            } else if (this.#data.behindTheSceneType === "") {
               windupBehindTheSceneItem();
               windupBehindTheSceneTitle();
               windupBehindTheSceneContent();
-              ++this.#behindTheSceneNumber;
+              ++this.#data.behindTheSceneNumber;
             }
           },
         },
@@ -83,12 +80,12 @@ class MtimeWorker extends XWorker {
           selector: ".revealed_modle h4",
           target: "text",
           handler: (text) => {
-            this.#behindTheSceneType += text.text;
+            this.#data.behindTheSceneType += text.text;
             if (text.lastInTextNode) {
-              this.behindTheScene.push({
-                type: this.#behindTheSceneType.trim().toLowerCase(),
+              this.data.behindTheScene.push({
+                type: this.#data.behindTheSceneType.trim().toLowerCase(),
               });
-              this.#behindTheSceneType = "";
+              this.#data.behindTheSceneType = "";
             }
           },
         },
@@ -96,10 +93,10 @@ class MtimeWorker extends XWorker {
           selector: ".revealed_modle h3",
           target: "text",
           handler: (text) => {
-            if (typeof this.#behindTheSceneTitle === "undefined") {
-              this.#behindTheSceneTitle = "";
+            if (typeof this.#data.behindTheSceneTitle === "undefined") {
+              this.#data.behindTheSceneTitle = "";
             }
-            this.#behindTheSceneTitle += text.text;
+            this.#data.behindTheSceneTitle += text.text;
           },
         },
         {
@@ -107,8 +104,9 @@ class MtimeWorker extends XWorker {
           target: "element",
           handler: (el) => {
             if (
-              typeof this.behindTheScene[this.#behindTheSceneNumber] ===
-              "undefined"
+              typeof this.data.behindTheScene[
+                this.#data.behindTheSceneNumber
+              ] === "undefined"
             ) {
               let type;
               switch (el.getAttribute("class")) {
@@ -131,10 +129,10 @@ class MtimeWorker extends XWorker {
                   type = "unknown";
                   break;
               }
-              this.behindTheScene.push({
+              this.data.behindTheScene.push({
                 type: type,
               });
-              this.#behindTheSceneType = "";
+              this.#data.behindTheSceneType = "";
             }
           },
         },
@@ -142,7 +140,7 @@ class MtimeWorker extends XWorker {
           selector: contentItemSelectors.join(","),
           target: "element",
           handler: (el) => {
-            if (this.#behindTheSceneList instanceof Array) {
+            if (this.#data.behindTheSceneList instanceof Array) {
               windupBehindTheSceneItem();
             }
           },
@@ -151,7 +149,7 @@ class MtimeWorker extends XWorker {
           selector: contentItemBreakSelectors.join(","),
           target: "element",
           handler: (el) => {
-            if (typeof this.#behindTheSceneItem === "string") {
+            if (typeof this.#data.behindTheSceneItem === "string") {
               windupBehindTheSceneItem();
             }
           },
@@ -160,21 +158,21 @@ class MtimeWorker extends XWorker {
           selector: contentItemSelectors.join(","),
           target: "text",
           handler: (text) => {
-            if (typeof this.#behindTheSceneList === "undefined") {
-              this.#behindTheSceneList = [];
-              this.#behindTheSceneItem = "";
+            if (typeof this.#data.behindTheSceneList === "undefined") {
+              this.#data.behindTheSceneList = [];
+              this.#data.behindTheSceneItem = "";
             }
-            this.#behindTheSceneItem += text.text;
+            this.#data.behindTheSceneItem += text.text;
           },
         },
       ],
       document: {
         end: (end) => {
-          if (typeof this.year === "undefined") {
-            this.year = null;
+          if (typeof this.data.year === "undefined") {
+            this.data.year = null;
           }
-          if (typeof this.behindTheScene === "undefined") {
-            this.behindTheScene = [];
+          if (typeof this.data.behindTheScene === "undefined") {
+            this.data.behindTheScene = [];
           } else {
             windupBehindTheSceneItem();
             windupBehindTheSceneTitle();
@@ -187,7 +185,7 @@ class MtimeWorker extends XWorker {
 
   // 公有实例方法 获取 URL
   #getRequestURL(type = "entry") {
-    let pageURL = `http://movie.mtime.com/${this.mtimeID}/`;
+    let pageURL = `http://movie.mtime.com/${this.data.mtimeID}/`;
     let typeString;
     switch (type) {
       case "behindTheScene":

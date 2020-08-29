@@ -1,26 +1,25 @@
 const XWorker = require("./x-worker.js");
 // 类定义
 class IMDbWorker extends XWorker {
-  // 私有实例字段：隐私信息
   // 私有实例字段：其他数据库 ID
   #doubanID;
 
   // 构造函数：创建实例
   constructor(id, cache) {
     super(cache);
-    this.imdbID = id;
+    this.data.imdbID = id;
   }
 
   // 公有实例方法 获取 URL
   #getRequestRatingURL() {
-    return `https://p.media-imdb.com/static-content/documents/v1/title/tt${this.imdbID}/ratings%3Fjsonp=imdb.rating.run:imdb.api.title.ratings/data.json`;
+    return `https://p.media-imdb.com/static-content/documents/v1/title/tt${this.data.imdbID}/ratings%3Fjsonp=imdb.rating.run:imdb.api.title.ratings/data.json`;
   }
 
   // 私有实例方法 解析评分：解析 IMDb 评分对象并向实例字段赋值
   async #parseRating(resp) {
     try {
       const ratingJSON = JSON.parse((await resp.text()).slice(16, -1));
-      this.imdbRating = ratingJSON.resource;
+      this.data.imdbRating = ratingJSON.resource;
     } catch (err) {
       this.error.exists = true;
       this.error.errors.push({
@@ -28,7 +27,7 @@ class IMDbWorker extends XWorker {
         status: 0,
         statusText: err.name + ": " + err.message,
       });
-      this.imdbRating = null;
+      this.data.imdbRating = null;
     }
   }
 
@@ -73,7 +72,7 @@ class IMDbWorker extends XWorker {
   // 搜索豆瓣
   async #doubanSearch() {
     return await this._cachedFetch(
-      `https://movie.douban.com/j/subject_suggest?q=tt${this.imdbID}`
+      `https://movie.douban.com/j/subject_suggest?q=tt${this.data.imdbID}`
     );
   }
 }

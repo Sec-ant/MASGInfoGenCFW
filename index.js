@@ -72,33 +72,25 @@ async function handleRequest(request) {
           }
         })(),
       ]);
-      if (doubanEntry.year !== mtimeEntry.year) {
-        mtimeEntry = {
+      if (doubanEntry.data.year !== mtimeEntry.data.year) {
+        mtimeEntry.data = {
           mtimeID: null,
           behindTheScene: null,
         };
       }
       respBody = JSON.stringify({
-        poster: doubanEntry.poster,
-        title: doubanEntry.title,
-        year: doubanEntry.year,
-        regions: doubanEntry.regions,
-        genres: doubanEntry.genres,
-        languages: doubanEntry.languages,
-        releaseDates: doubanEntry.releaseDates,
-        imdbRating: imdbEntry.imdbRating,
-        imdbID: imdbEntry.imdbID,
-        doubanRating: doubanEntry.doubanRating,
-        doubanID: doubanEntry.doubanID,
-        mtimeID: mtimeEntry.mtimeID,
-        durations: doubanEntry.durations,
-        episodeDuration: doubanEntry.episodeDuration,
-        episodeCount: doubanEntry.episodeCount,
-        celebrities: doubanEntry.celebrities,
-        tags: doubanEntry.tags,
-        description: doubanEntry.description,
-        awards: doubanEntry.awards,
-        mtimeBehindTheScene: mtimeEntry.behindTheScene,
+        douban: {
+          data: doubanEntry.data,
+          error: doubanEntry.error,
+        },
+        imdb: {
+          data: imdbEntry.data,
+          error: imdbEntry.error,
+        },
+        mtime: {
+          data: mtimeEntry.data,
+          error: mtimeEntry.error,
+        },
       });
     } else {
     }

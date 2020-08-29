@@ -4,36 +4,8 @@ const XWorker = require("./x-worker.js");
 class DoubanWorker extends XWorker {
   // 私有实例字段：隐私信息
   #headers;
-  // 私有实例字段：条目页面解析中间变量
-  #chineseTitle;
-  #originalTitle;
-  #transTitle;
-  #akaTitles;
-  #COTitlesSame;
-  #genre;
-  #firstSeasonDoubanID;
-  #doubanAverageRating;
-  #doubanRatingVotes;
-  #doubanRatingHistogram;
-  #_doubanRatingHistogram;
-  #description;
-  #label;
-  #episodeDurationOver;
-  #episodeCountOver;
-  // 私有实例字段：获奖页面解析中间变量
-  #awardsTitle;
-  #awardsYear;
-  #awardsNumber;
-  #categories;
-  #categoriesTitle;
-  #winners;
-  #categoriesNumber;
-  // 私有实例字段：影人页面解析中间变量
-  #positionName;
-  #celebritiesNumber;
-  #celebrityList;
-  #celebrityName;
-  #celebrityListNumber;
+  // 私有实例字段：中间变量
+  #data = {};
   // 私有实例字段：其他数据库 ID
   #imdbID;
   #mtimeID;
@@ -41,7 +13,7 @@ class DoubanWorker extends XWorker {
   // 构造函数：创建实例
   constructor(id, headers, cache) {
     super(cache);
-    this.doubanID = id;
+    this.data.doubanID = id;
     this.#headers = headers;
   }
 
@@ -54,12 +26,12 @@ class DoubanWorker extends XWorker {
           selector: "title",
           target: "text",
           handler: (text) => {
-            if (typeof this.#chineseTitle === "undefined") {
-              this.#chineseTitle = "";
+            if (typeof this.#data.chineseTitle === "undefined") {
+              this.#data.chineseTitle = "";
             }
-            this.#chineseTitle += text.text;
+            this.#data.chineseTitle += text.text;
             if (text.lastInTextNode) {
-              this.#chineseTitle = this.#chineseTitle
+              this.#data.chineseTitle = this.#data.chineseTitle
                 .trim()
                 .replace(/\(豆瓣\)$/, "")
                 .trim();
@@ -71,21 +43,21 @@ class DoubanWorker extends XWorker {
           selector: "#content h1>span[property]",
           target: "text",
           handler: (text) => {
-            if (typeof this.#originalTitle === "undefined") {
-              this.#originalTitle = "";
+            if (typeof this.#data.originalTitle === "undefined") {
+              this.#data.originalTitle = "";
             }
-            this.#originalTitle += text.text;
+            this.#data.originalTitle += text.text;
             if (text.lastInTextNode) {
-              this.#originalTitle = this.#originalTitle
-                .replace(this.#chineseTitle, "")
+              this.#data.originalTitle = this.#data.originalTitle
+                .replace(this.#data.chineseTitle, "")
                 .trim();
-              if (this.#originalTitle === "") {
-                this.#COTitlesSame = true;
-                this.#originalTitle = this.#chineseTitle;
+              if (this.#data.originalTitle === "") {
+                this.#data.COTitlesSame = true;
+                this.#data.originalTitle = this.#data.chineseTitle;
               } else {
-                this.#COTitlesSame = false;
+                this.#data.COTitlesSame = false;
               }
-              this.#originalTitle = he.decode(this.#originalTitle);
+              this.#data.originalTitle = he.decode(this.#data.originalTitle);
             }
           },
         },
@@ -95,7 +67,7 @@ class DoubanWorker extends XWorker {
           target: "element",
           handler: (el) => {
             try {
-              this.poster = el
+              this.data.poster = el
                 .getAttribute("src")
                 .replace(
                   /^.+(p\d+).+$/,
@@ -103,7 +75,7 @@ class DoubanWorker extends XWorker {
                     `https://img1.doubanio.com/view/photo/l_ratio_poster/public/${p1}.jpg`
                 );
             } catch (err) {
-              this.poster = null;
+              this.data.poster = null;
             }
           },
         },
@@ -112,12 +84,12 @@ class DoubanWorker extends XWorker {
           selector: "#content>h1>span.year",
           target: "text",
           handler: (text) => {
-            if (typeof this.year === "undefined") {
-              this.year = "";
+            if (typeof this.data.year === "undefined") {
+              this.data.year = "";
             }
-            this.year += text.text;
+            this.data.year += text.text;
             if (text.lastInTextNode) {
-              this.year = Number(this.year.slice(1, -1));
+              this.data.year = Number(this.data.year.slice(1, -1));
             }
           },
         },
@@ -126,14 +98,14 @@ class DoubanWorker extends XWorker {
           selector: '#info span[property="v:genre"]',
           target: "text",
           handler: (text) => {
-            if (typeof this.genres === "undefined") {
-              this.genres = [];
-              this.#genre = "";
+            if (typeof this.data.genres === "undefined") {
+              this.data.genres = [];
+              this.#data.genre = "";
             }
-            this.#genre += text.text;
+            this.#data.genre += text.text;
             if (text.lastInTextNode) {
-              this.genres.push(this.#genre.trim());
-              this.#genre = "";
+              this.data.genres.push(this.#data.genre.trim());
+              this.#data.genre = "";
             }
           },
         },
@@ -142,10 +114,10 @@ class DoubanWorker extends XWorker {
           selector: '#info span[property="v:initialReleaseDate"]',
           target: "element",
           handler: (el) => {
-            if (typeof this.releaseDates === "undefined") {
-              this.releaseDates = [];
+            if (typeof this.data.releaseDates === "undefined") {
+              this.data.releaseDates = [];
             }
-            this.releaseDates.push(el.getAttribute("content"));
+            this.data.releaseDates.push(el.getAttribute("content"));
           },
         },
         {
@@ -153,8 +125,8 @@ class DoubanWorker extends XWorker {
           selector: '#info span[property="v:runtime"]',
           target: "text",
           handler: (text) => {
-            if (typeof this.durations === "undefined") {
-              this.durations = "";
+            if (typeof this.data.durations === "undefined") {
+              this.data.durations = "";
             }
           },
         },
@@ -164,7 +136,7 @@ class DoubanWorker extends XWorker {
           target: "element",
           handler: (el) => {
             if (el.getAttribute("selected") === null) {
-              this.#firstSeasonDoubanID = el.getAttribute("value");
+              this.#data.firstSeasonDoubanID = el.getAttribute("value");
             }
           },
         },
@@ -181,10 +153,10 @@ class DoubanWorker extends XWorker {
           selector: "div.tags-body>a",
           target: "element",
           handler: (el) => {
-            if (typeof this.tags === "undefined") {
-              this.tags = [];
+            if (typeof this.data.tags === "undefined") {
+              this.data.tags = [];
             }
-            this.tags.push(el.getAttribute("href").slice(5));
+            this.data.tags.push(el.getAttribute("href").slice(5));
           },
         },
         {
@@ -192,12 +164,14 @@ class DoubanWorker extends XWorker {
           selector: '#interest_sectl [property="v:average"]',
           target: "text",
           handler: (text) => {
-            if (typeof this.#doubanAverageRating === "undefined") {
-              this.#doubanAverageRating = "";
+            if (typeof this.#data.doubanAverageRating === "undefined") {
+              this.#data.doubanAverageRating = "";
             }
-            this.#doubanAverageRating += text.text;
+            this.#data.doubanAverageRating += text.text;
             if (text.lastInTextNode) {
-              this.#doubanAverageRating = parseFloat(this.#doubanAverageRating);
+              this.#data.doubanAverageRating = parseFloat(
+                this.#data.doubanAverageRating
+              );
             }
           },
         },
@@ -206,12 +180,14 @@ class DoubanWorker extends XWorker {
           selector: '#interest_sectl [property="v:votes"]',
           target: "text",
           handler: (text) => {
-            if (typeof this.#doubanRatingVotes === "undefined") {
-              this.#doubanRatingVotes = "";
+            if (typeof this.#data.doubanRatingVotes === "undefined") {
+              this.#data.doubanRatingVotes = "";
             }
-            this.#doubanRatingVotes += text.text;
+            this.#data.doubanRatingVotes += text.text;
             if (text.lastInTextNode) {
-              this.#doubanRatingVotes = parseInt(this.#doubanRatingVotes);
+              this.#data.doubanRatingVotes = parseInt(
+                this.#data.doubanRatingVotes
+              );
             }
           },
         },
@@ -220,20 +196,21 @@ class DoubanWorker extends XWorker {
           selector: "#interest_sectl .ratings-on-weight .rating_per",
           target: "text",
           handler: (text) => {
-            if (typeof this.#doubanRatingHistogram === "undefined") {
-              this.#doubanRatingHistogram = [];
-              this.#_doubanRatingHistogram = "";
+            if (typeof this.#data.doubanRatingHistogram === "undefined") {
+              this.#data.doubanRatingHistogram = [];
+              this.#data._doubanRatingHistogram = "";
             }
-            this.#_doubanRatingHistogram += text.text;
+            this.#data._doubanRatingHistogram += text.text;
             if (text.lastInTextNode) {
-              this.#doubanRatingHistogram.push(
+              this.#data.doubanRatingHistogram.push(
                 Number(
                   (
-                    parseFloat(this.#_doubanRatingHistogram.slice(0, -1)) / 100
+                    parseFloat(this.#data._doubanRatingHistogram.slice(0, -1)) /
+                    100
                   ).toFixed(5)
                 )
               );
-              this.#_doubanRatingHistogram = "";
+              this.#data._doubanRatingHistogram = "";
             }
           },
         },
@@ -243,7 +220,7 @@ class DoubanWorker extends XWorker {
             '#link-report>[property="v:summary"],#link-report>span.all.hidden',
           target: "element",
           handler: (el) => {
-            this.description = undefined;
+            this.data.description = undefined;
           },
         },
         {
@@ -252,16 +229,16 @@ class DoubanWorker extends XWorker {
             '#link-report>[property="v:summary"],#link-report>span.all.hidden',
           target: "text",
           handler: (text) => {
-            if (typeof this.description === "undefined") {
-              this.description = [];
-              this.#description = "";
+            if (typeof this.data.description === "undefined") {
+              this.data.description = [];
+              this.#data.description = "";
             }
-            this.#description += text.text;
+            this.#data.description += text.text;
             if (text.lastInTextNode) {
-              if (this.#description.trim()) {
-                this.description.push(this.#description.trim());
+              if (this.#data.description.trim()) {
+                this.data.description.push(this.#data.description.trim());
               }
-              this.#description = "";
+              this.#data.description = "";
             }
           },
         },
@@ -270,26 +247,26 @@ class DoubanWorker extends XWorker {
           selector: "#info>span.pl",
           target: "text",
           handler: (text) => {
-            if (typeof this.#label === "undefined") {
-              this.#label = text.text;
+            if (typeof this.#data.label === "undefined") {
+              this.#data.label = text.text;
             } else {
-              this.#label += text.text;
+              this.#data.label += text.text;
             }
             if (text.lastInTextNode) {
-              if ("制片国家/地区:" === this.#label) {
-                this.regions = "";
-              } else if ("语言:" === this.#label) {
-                this.languages = "";
-              } else if ("单集片长:" === this.#label) {
-                this.episodeDuration = "";
-                this.#episodeDurationOver = false;
-              } else if ("集数:" === this.#label) {
-                this.episodeCount = "";
-                this.#episodeCountOver = false;
-              } else if ("又名:" === this.#label) {
-                this.#akaTitles = "";
+              if ("制片国家/地区:" === this.#data.label) {
+                this.data.regions = "";
+              } else if ("语言:" === this.#data.label) {
+                this.data.languages = "";
+              } else if ("单集片长:" === this.#data.label) {
+                this.data.episodeDuration = "";
+                this.#data.episodeDurationOver = false;
+              } else if ("集数:" === this.#data.label) {
+                this.data.episodeCount = "";
+                this.#data.episodeCountOver = false;
+              } else if ("又名:" === this.#data.label) {
+                this.#data.akaTitles = "";
               }
-              this.#label = "";
+              this.#data.label = "";
             }
           },
         },
@@ -298,29 +275,29 @@ class DoubanWorker extends XWorker {
           selector: "#info",
           target: "text",
           handler: (text) => {
-            if (typeof this.regions === "string") {
-              this.regions += text.text;
+            if (typeof this.data.regions === "string") {
+              this.data.regions += text.text;
             }
-            if (typeof this.languages === "string") {
-              this.languages += text.text;
+            if (typeof this.data.languages === "string") {
+              this.data.languages += text.text;
             }
-            if (typeof this.durations === "string") {
-              this.durations += text.text;
-            }
-            if (
-              typeof this.episodeDuration === "string" &&
-              !this.#episodeDurationOver
-            ) {
-              this.episodeDuration += text.text;
+            if (typeof this.data.durations === "string") {
+              this.data.durations += text.text;
             }
             if (
-              typeof this.episodeCount === "string" &&
-              !this.#episodeCountOver
+              typeof this.data.episodeDuration === "string" &&
+              !this.#data.episodeDurationOver
             ) {
-              this.episodeCount += text.text;
+              this.data.episodeDuration += text.text;
             }
-            if (typeof this.#akaTitles === "string") {
-              this.#akaTitles += text.text;
+            if (
+              typeof this.data.episodeCount === "string" &&
+              !this.#data.episodeCountOver
+            ) {
+              this.data.episodeCount += text.text;
+            }
+            if (typeof this.#data.akaTitles === "string") {
+              this.#data.akaTitles += text.text;
             }
           },
         },
@@ -329,31 +306,31 @@ class DoubanWorker extends XWorker {
           selector: "#info>br",
           target: "element",
           handler: (el) => {
-            if (typeof this.regions === "string") {
-              this.regions = this.regions.trim().split(" / ");
+            if (typeof this.data.regions === "string") {
+              this.data.regions = this.data.regions.trim().split(" / ");
             }
-            if (typeof this.languages === "string") {
-              this.languages = this.languages.trim().split(" / ");
+            if (typeof this.data.languages === "string") {
+              this.data.languages = this.data.languages.trim().split(" / ");
             }
-            if (typeof this.durations === "string") {
-              this.durations = this.durations.trim().split(" / ");
-            }
-            if (
-              typeof this.episodeDuration === "string" &&
-              !this.#episodeDurationOver
-            ) {
-              this.episodeDuration = this.episodeDuration.trim();
-              this.#episodeDurationOver = true;
+            if (typeof this.data.durations === "string") {
+              this.data.durations = this.data.durations.trim().split(" / ");
             }
             if (
-              typeof this.episodeCount === "string" &&
-              !this.#episodeCountOver
+              typeof this.data.episodeDuration === "string" &&
+              !this.#data.episodeDurationOver
             ) {
-              this.episodeCount = this.episodeCount.trim();
-              this.#episodeCountOver = true;
+              this.data.episodeDuration = this.data.episodeDuration.trim();
+              this.#data.episodeDurationOver = true;
             }
-            if (typeof this.#akaTitles === "string") {
-              this.#akaTitles = this.#akaTitles.trim().split(" / ");
+            if (
+              typeof this.data.episodeCount === "string" &&
+              !this.#data.episodeCountOver
+            ) {
+              this.data.episodeCount = this.data.episodeCount.trim();
+              this.#data.episodeCountOver = true;
+            }
+            if (typeof this.#data.akaTitles === "string") {
+              this.#data.akaTitles = this.#data.akaTitles.trim().split(" / ");
             }
           },
         },
@@ -362,120 +339,109 @@ class DoubanWorker extends XWorker {
         // 后处理收尾
         end: (end) => {
           if (
-            this.#akaTitles &&
-            this.#COTitlesSame &&
-            /中国/.test(this.regions[0])
+            this.#data.akaTitles &&
+            this.#data.COTitlesSame &&
+            /中国/.test(this.data.regions[0])
           ) {
-            this.#transTitle = this.#akaTitles.find((title) =>
+            this.#data.transTitle = this.#data.akaTitles.find((title) =>
               /[a-z]/i.test(title)
             );
           } else {
-            this.#transTitle = this.#chineseTitle;
+            this.#data.transTitle = this.#data.chineseTitle;
           }
 
-          if (typeof this.#akaTitles === "undefined") {
-            this.#akaTitles = [];
+          if (typeof this.#data.akaTitles === "undefined") {
+            this.#data.akaTitles = [];
           } else {
             const getTitlePriority = (title) =>
-              title === this.#transTitle
+              title === this.#data.transTitle
                 ? 0
                 : /\(港.?台\)$/.test(title)
                 ? 1
                 : /\([港台]\)$/.test(title)
                 ? 2
                 : 3;
-            this.#akaTitles = this.#akaTitles
+            this.#data.akaTitles = this.#data.akaTitles
               .sort((ta, tb) => getTitlePriority(ta) - getTitlePriority(tb))
-              .filter((t) => t !== this.#transTitle);
+              .filter((t) => t !== this.#data.transTitle);
           }
 
-          this.title = {
-            chinese: this.#chineseTitle,
-            original: this.#originalTitle,
-            translated: this.#transTitle,
-            alsoKnownAs: this.#akaTitles,
+          this.data.title = {
+            chinese: this.#data.chineseTitle,
+            original: this.#data.originalTitle,
+            translated: this.#data.transTitle,
+            alsoKnownAs: this.#data.akaTitles,
           };
 
-          if (typeof this.poster === "undefined") {
-            this.poster = null;
+          if (typeof this.data.poster === "undefined") {
+            this.data.poster = null;
           }
-          if (typeof this.year === "undefined") {
-            this.year = null;
+          if (typeof this.data.year === "undefined") {
+            this.data.year = null;
           }
-          if (typeof this.genres === "undefined") {
-            this.genres = [];
+          if (typeof this.data.genres === "undefined") {
+            this.data.genres = [];
           }
-          if (typeof this.releaseDates === "undefined") {
-            this.releaseDates = [];
+          if (typeof this.data.releaseDates === "undefined") {
+            this.data.releaseDates = [];
           }
-          if (typeof this.regions === "undefined") {
-            this.regions = [];
+          if (typeof this.data.regions === "undefined") {
+            this.data.regions = [];
           }
-          if (typeof this.languages === "undefined") {
-            this.languages = [];
+          if (typeof this.data.languages === "undefined") {
+            this.data.languages = [];
           }
-          if (typeof this.durations === "undefined") {
-            this.durations = [];
+          if (typeof this.data.durations === "undefined") {
+            this.data.durations = [];
           }
-          if (typeof this.episodeDuration === "undefined") {
-            this.episodeDuration = null;
-            this.#episodeDurationOver = true;
+          if (typeof this.data.episodeDuration === "undefined") {
+            this.data.episodeDuration = null;
+            this.#data.episodeDurationOver = true;
           }
-          if (typeof this.episodeCount === "undefined") {
-            this.episodeCount = null;
-            this.#episodeCountOver = true;
+          if (typeof this.data.episodeCount === "undefined") {
+            this.data.episodeCount = null;
+            this.#data.episodeCountOver = true;
           }
-          if (typeof this.#firstSeasonDoubanID === "undefined") {
-            this.#firstSeasonDoubanID = null;
+          if (typeof this.#data.firstSeasonDoubanID === "undefined") {
+            this.#data.firstSeasonDoubanID = null;
           }
           if (typeof this.#imdbID === "undefined") {
             this.#imdbID = null;
           }
-          if (typeof this.tags === "undefined") {
-            this.tags = [];
+          if (typeof this.data.tags === "undefined") {
+            this.data.tags = [];
           }
-          if (typeof this.releaseDates === "undefined") {
-            this.releaseDates = [];
+          if (typeof this.data.releaseDates === "undefined") {
+            this.data.releaseDates = [];
           } else {
             try {
-              this.releaseDates.sort((a, b) => new Date(a) - new Date(b));
+              this.data.releaseDates.sort((a, b) => new Date(a) - new Date(b));
             } catch (err) {}
           }
-          if (typeof this.description === "undefined") {
-            this.description = null;
+          if (typeof this.data.description === "undefined") {
+            this.data.description = null;
           } else {
-            this.description = this.description.join("\n");
+            this.data.description = this.data.description.join("\n");
           }
           try {
-            this.#doubanRatingHistogram = Object.fromEntries(
-              this.#doubanRatingHistogram.map((e, i) => [5 - i, e])
+            this.#data.doubanRatingHistogram = Object.fromEntries(
+              this.#data.doubanRatingHistogram.map((e, i) => [5 - i, e])
             );
-            this.doubanRating = {
-              rating: this.#doubanAverageRating,
-              ratingCount: this.#doubanRatingVotes,
-              ratingHistograms: {
-                "Douban Users": {
-                  aggregateRating: this.#doubanAverageRating,
-                  demographic: "Douban Users",
-                  histogram: this.#doubanRatingHistogram,
-                  totalRatings: this.#doubanRatingVotes,
-                },
-              },
-            };
           } catch (err) {
-            this.doubanRating = {
-              rating: null,
-              ratingCount: null,
-              ratingHistograms: {
-                "Douban Users": {
-                  aggregateRating: null,
-                  demographic: null,
-                  histogram: null,
-                  totalRatings: null,
-                },
-              },
-            };
+            this.#data.doubanRatingHistogram = null;
           }
+          this.data.doubanRating = {
+            rating: this.#data.doubanAverageRating || null,
+            ratingCount: this.#data.doubanRatingVotes || null,
+            ratingHistograms: {
+              "Douban Users": {
+                aggregateRating: this.#data.doubanAverageRating || null,
+                demographic: "Douban Users",
+                histogram: this.#data.doubanRatingHistogram || null,
+                totalRatings: this.#data.doubanRatingVotes || null,
+              },
+            },
+          };
         },
       },
     };
@@ -485,18 +451,21 @@ class DoubanWorker extends XWorker {
   static awardsPageParserGen() {
     // 获奖项人员收尾辅助函数
     const windupWinners = () => {
-      this.#categories[this.#categoriesNumber].winners = this.#winners
+      this.#data.categories[this.#data.categoriesNumber].winners = this.#data
+        .winners
         ? he
-            .decode(this.#winners)
+            .decode(this.#data.winners)
             .split("/")
             .map((p) => p.trim())
         : [];
-      this.#winners = "";
+      this.#data.winners = "";
     };
     // 获奖项收尾辅助函数
     const windupCategories = () => {
-      this.awards[this.#awardsNumber].categories = this.#categories;
-      this.#categories = undefined;
+      this.data.awards[
+        this.#data.awardsNumber
+      ].categories = this.#data.categories;
+      this.#data.categories = undefined;
     };
     return {
       element: [
@@ -505,21 +474,21 @@ class DoubanWorker extends XWorker {
           selector: "div.awards>.hd>h2>a",
           target: "text",
           handler: (text) => {
-            if (typeof this.awards === "undefined") {
-              this.awards = [];
-              this.#awardsTitle = "";
-              this.#awardsNumber = 0;
-            } else if (this.#awardsTitle === "") {
+            if (typeof this.data.awards === "undefined") {
+              this.data.awards = [];
+              this.#data.awardsTitle = "";
+              this.#data.awardsNumber = 0;
+            } else if (this.#data.awardsTitle === "") {
               windupWinners();
               windupCategories();
-              ++this.#awardsNumber;
+              ++this.#data.awardsNumber;
             }
-            this.#awardsTitle += text.text;
+            this.#data.awardsTitle += text.text;
             if (text.lastInTextNode) {
-              this.awards.push({
-                title: he.decode(this.#awardsTitle).trim(),
+              this.data.awards.push({
+                title: he.decode(this.#data.awardsTitle).trim(),
               });
-              this.#awardsTitle = "";
+              this.#data.awardsTitle = "";
             }
           },
         },
@@ -528,15 +497,15 @@ class DoubanWorker extends XWorker {
           selector: "div.awards>.hd>h2>span.year",
           target: "text",
           handler: (text) => {
-            if (typeof this.#awardsYear === "undefined") {
-              this.#awardsYear = "";
+            if (typeof this.#data.awardsYear === "undefined") {
+              this.#data.awardsYear = "";
             }
-            this.#awardsYear += text.text;
+            this.#data.awardsYear += text.text;
             if (text.lastInTextNode) {
-              this.awards[this.#awardsNumber].year = parseInt(
-                this.#awardsYear.match(/\d+/)[0]
+              this.data.awards[this.#data.awardsNumber].year = parseInt(
+                this.#data.awardsYear.match(/\d+/)[0]
               );
-              this.#awardsYear = "";
+              this.#data.awardsYear = "";
             }
           },
         },
@@ -545,20 +514,20 @@ class DoubanWorker extends XWorker {
           selector: "div.awards>.award>li:first-of-type",
           target: "text",
           handler: (text) => {
-            if (typeof this.#categories === "undefined") {
-              this.#categories = [];
-              this.#categoriesTitle = "";
-              this.#categoriesNumber = 0;
-            } else if (this.#categoriesTitle === "") {
+            if (typeof this.#data.categories === "undefined") {
+              this.#data.categories = [];
+              this.#data.categoriesTitle = "";
+              this.#data.categoriesNumber = 0;
+            } else if (this.#data.categoriesTitle === "") {
               windupWinners();
-              ++this.#categoriesNumber;
+              ++this.#data.categoriesNumber;
             }
-            this.#categoriesTitle += text.text;
+            this.#data.categoriesTitle += text.text;
             if (text.lastInTextNode) {
-              this.#categories.push({
-                title: he.decode(this.#categoriesTitle).trim(),
+              this.#data.categories.push({
+                title: he.decode(this.#data.categoriesTitle).trim(),
               });
-              this.#categoriesTitle = "";
+              this.#data.categoriesTitle = "";
             }
           },
         },
@@ -567,18 +536,18 @@ class DoubanWorker extends XWorker {
           selector: "div.awards>.award>li:nth-of-type(2)",
           target: "text",
           handler: (text) => {
-            if (typeof this.#winners === "undefined") {
-              this.#winners = "";
+            if (typeof this.#data.winners === "undefined") {
+              this.#data.winners = "";
             }
-            this.#winners += text.text;
+            this.#data.winners += text.text;
           },
         },
       ],
       document: {
         // 后处理收尾
         end: (end) => {
-          if (typeof this.awards === "undefined") {
-            this.awards = [];
+          if (typeof this.data.awards === "undefined") {
+            this.data.awards = [];
           } else {
             windupWinners();
             windupCategories();
@@ -592,10 +561,10 @@ class DoubanWorker extends XWorker {
   static celebritiesPageParserGen() {
     // 影人列表收尾辅助函数
     const windupCelebrityList = () => {
-      this.celebrities[
-        this.#celebritiesNumber
-      ].celebrityList = this.#celebrityList;
-      this.#celebrityList = undefined;
+      this.data.celebrities[
+        this.#data.celebritiesNumber
+      ].celebrityList = this.#data.celebrityList;
+      this.#data.celebrityList = undefined;
     };
     return {
       element: [
@@ -604,27 +573,29 @@ class DoubanWorker extends XWorker {
           selector: "#celebrities>div.list-wrapper>h2",
           target: "text",
           handler: (text) => {
-            if (typeof this.celebrities === "undefined") {
-              this.celebrities = [];
-              this.#positionName = "";
-              this.#celebritiesNumber = 0;
-            } else if (this.#positionName === "") {
+            if (typeof this.data.celebrities === "undefined") {
+              this.data.celebrities = [];
+              this.#data.positionName = "";
+              this.#data.celebritiesNumber = 0;
+            } else if (this.#data.positionName === "") {
               windupCelebrityList();
-              ++this.#celebritiesNumber;
+              ++this.#data.celebritiesNumber;
             }
-            this.#positionName += text.text;
+            this.#data.positionName += text.text;
             if (text.lastInTextNode) {
               const [
                 positionChinese,
                 positionForeign,
-              ] = this.#positionName.match(/([^ ]*)(?:$| )(.*)/).slice(1, 3);
-              this.celebrities.push({
+              ] = this.#data.positionName
+                .match(/([^ ]*)(?:$| )(.*)/)
+                .slice(1, 3);
+              this.data.celebrities.push({
                 position: {
                   chinese: positionChinese || null,
                   foreign: positionForeign || null,
                 },
               });
-              this.#positionName = "";
+              this.#data.positionName = "";
             }
           },
         },
@@ -633,27 +604,27 @@ class DoubanWorker extends XWorker {
           selector: "#celebrities>div.list-wrapper li.celebrity>.info>.name",
           target: "text",
           handler: (text) => {
-            if (typeof this.#celebrityList === "undefined") {
-              this.#celebrityList = [];
-              this.#celebrityName = "";
-              this.#celebrityListNumber = 0;
+            if (typeof this.#data.celebrityList === "undefined") {
+              this.#data.celebrityList = [];
+              this.#data.celebrityName = "";
+              this.#data.celebrityListNumber = 0;
             }
-            this.#celebrityName += text.text;
+            this.#data.celebrityName += text.text;
             if (text.lastInTextNode) {
-              let [nameChinese, nameForeign] = this.#celebrityName
+              let [nameChinese, nameForeign] = this.#data.celebrityName
                 .match(/([^ ]*)(?:$| )(.*)/)
                 .slice(1, 3);
               if (!/[\u4E00-\u9FCC]/.test(nameChinese)) {
                 nameForeign = nameChinese + " " + nameForeign;
                 nameChinese = null;
               }
-              this.#celebrityList.push({
+              this.#data.celebrityList.push({
                 name: {
                   chinese: nameChinese || null,
                   foreign: nameForeign || null,
                 },
               });
-              this.#celebrityName = "";
+              this.#data.celebrityName = "";
             }
           },
         },
@@ -666,22 +637,25 @@ class DoubanWorker extends XWorker {
               .getAttribute("title")
               .match(/([^ ]*)(?:$| )([^(]*)(?:$| )(.*)/)
               .slice(1, 4);
-            Object.assign(this.#celebrityList[this.#celebrityListNumber], {
-              title: {
-                chinese: titleChinese || null,
-                foreign: titleForeign || null,
-              },
-              role: role.replace(/[()]/g, "") || null,
-            });
-            ++this.#celebrityListNumber;
+            Object.assign(
+              this.#data.celebrityList[this.#data.celebrityListNumber],
+              {
+                title: {
+                  chinese: titleChinese || null,
+                  foreign: titleForeign || null,
+                },
+                role: role.replace(/[()]/g, "") || null,
+              }
+            );
+            ++this.#data.celebrityListNumber;
           },
         },
       ],
       document: {
         // 后处理收尾
         end: (end) => {
-          if (typeof this.celebrities === "undefined") {
-            this.celebrities = [];
+          if (typeof this.data.celebrities === "undefined") {
+            this.data.celebrities = [];
           } else {
             windupCelebrityList();
           }
@@ -692,7 +666,7 @@ class DoubanWorker extends XWorker {
 
   // 公有实例方法 获取 URL
   #getRequestURL(type = "entry") {
-    let pageURL = `https://movie.douban.com/subject/${this.doubanID}/`;
+    let pageURL = `https://movie.douban.com/subject/${this.data.doubanID}/`;
     let typeString;
     switch (type) {
       case "entry":
@@ -722,9 +696,9 @@ class DoubanWorker extends XWorker {
         resp,
         DoubanWorker[`${type}PageParserGen`].apply(this)
       );
-      if (type === "entry" && this.#firstSeasonDoubanID !== null) {
+      if (type === "entry" && this.#data.firstSeasonDoubanID !== null) {
         const doubanItem = new DoubanWorker(
-          this.#firstSeasonDoubanID,
+          this.#data.firstSeasonDoubanID,
           this.#headers
         );
         await doubanItem.requestAndParsePage(type);
@@ -764,8 +738,8 @@ class DoubanWorker extends XWorker {
     return (async () => {
       if (
         typeof this.#mtimeID === "undefined" &&
-        this.#chineseTitle &&
-        this.year
+        this.#data.chineseTitle &&
+        this.data.year
       ) {
         let resp = await this.#mtimeSearch();
         if (resp.ok) {
@@ -774,19 +748,19 @@ class DoubanWorker extends XWorker {
             this.#mtimeID = null;
           } else {
             let interestResults = resultsJson.value.filter((r) => {
-              let YE = Number(r.Year) <= this.year;
-              let TE = this.#chineseTitle.includes(r.TitleCn);
+              let YE = Number(r.Year) <= this.data.year;
+              let TE = this.#data.chineseTitle.includes(r.TitleCn);
               if (
-                this.#originalTitle &&
-                this.#originalTitle !== this.#chineseTitle
+                this.#data.originalTitle &&
+                this.#data.originalTitle !== this.#data.chineseTitle
               ) {
-                TE = TE || this.#originalTitle.includes(r.TitleEn);
+                TE = TE || this.#data.originalTitle.includes(r.TitleEn);
               }
               return YE && TE;
             });
             let result =
-              interestResults.find((r) => Number(r.Year) === this.year) ||
-              interestResults.find((r) => Number(r.Year) < this.year);
+              interestResults.find((r) => Number(r.Year) === this.data.year) ||
+              interestResults.find((r) => Number(r.Year) < this.data.year);
             if (result) {
               this.#mtimeID = "" + result.MovieId;
             } else {
@@ -809,7 +783,9 @@ class DoubanWorker extends XWorker {
           "Ajax_CallBack=true",
           "Ajax_CallBackType=Mtime.MemberCenter.Pages.MovieService",
           "Ajax_CallBackMethod=GetSearchMoviesByTitle",
-          `Ajax_CallBackArgument0=${encodeURIComponent(this.#chineseTitle)}`,
+          `Ajax_CallBackArgument0=${encodeURIComponent(
+            this.#data.chineseTitle
+          )}`,
           `Ajax_CallBackArgument1=${count}`,
         ].join("&"),
       {

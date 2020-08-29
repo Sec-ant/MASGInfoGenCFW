@@ -1,6 +1,7 @@
 class XWorker {
+  #cache;
   constructor(cache) {
-    this._cache = cache;
+    this.#cache = cache;
     this.data = {};
     this.error = {
       exists: false,
@@ -15,7 +16,7 @@ class XWorker {
     maxAge = 43200,
     cacheCondition = (resp) => resp.ok
   ) {
-    let resp = await this._cache.match(requestURL);
+    let resp = await this.#cache.match(requestURL);
     if (resp) {
       return resp;
     } else {
@@ -29,7 +30,7 @@ class XWorker {
           "Cache-Control",
           ["public", `max-age=${maxAge}`, "stale", "must-revalidate"].join(",")
         );
-        await this._cache.put(requestURL, newResp);
+        await this.#cache.put(requestURL, newResp);
         return cloneResp;
       }
       return resp;
