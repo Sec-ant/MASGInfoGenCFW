@@ -1,6 +1,6 @@
-const DoubanParser = require("./libs/douban-parser.js");
-const IMDbParser = require("./libs/imdb-parser.js");
-const MtimeParser = require("./libs/mtime-parser.js");
+const DoubanWorker = require("./libs/douban-worker.js");
+const IMDbWorker = require("./libs/imdb-worker.js");
+const MtimeWorker = require("./libs/mtime-worker.js");
 /**
  * Cloudflare Worker entrypoint
  */
@@ -23,7 +23,6 @@ function addComma(number) {
 
 // 生成响应（目前仅供测试解析是否正常，并非实际的 API 响应格式）
 async function handleRequest(request) {
-
   const incomeURL = new URL(request.url);
   const pathName = incomeURL.pathname;
   const searchParams = incomeURL.searchParams;
@@ -45,13 +44,13 @@ async function handleRequest(request) {
       cookie: searchParams.get("cookie") || incomeHeaders.get("cookie"),
     };
     if (/^\d+$/.test(id)) {
-      const doubanEntry = new DoubanParser(id, reqHeaders, cache);
+      const doubanEntry = new DoubanWorker(id, reqHeaders, cache);
       await doubanEntry.init();
       let [mtimeEntry, imdbEntry] = await Promise.all([
         (async () => {
           let mtimeID = await doubanEntry.mtimeID;
           if (mtimeID) {
-            let mtimeEntry = new MtimeParser(mtimeID, cache);
+            let mtimeEntry = new MtimeWorker(mtimeID, cache);
             return mtimeEntry.init();
           } else {
             return {
@@ -63,7 +62,7 @@ async function handleRequest(request) {
         (async () => {
           let imdbID = await doubanEntry.imdbID;
           if (imdbID) {
-            let imdbEntry = new IMDbParser(imdbID, cache);
+            let imdbEntry = new IMDbWorker(imdbID, cache);
             return imdbEntry.init();
           } else {
             return {

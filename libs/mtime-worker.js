@@ -1,8 +1,8 @@
 const he = require("he");
+const XWorker = require("./x-worker.js");
 // 类定义
-class MtimeParser {
+class MtimeWorker extends XWorker {
   // 私有实例字段：隐私信息
-  #cache;
   // 私有实例字段：幕后页面解析中间变量
   #behindTheSceneType;
   #behindTheSceneNumber;
@@ -12,12 +12,8 @@ class MtimeParser {
 
   // 构造函数：创建实例
   constructor(id, cache) {
+    super(cache);
     this.mtimeID = id;
-    this.#cache = cache;
-    this.error = {
-      exists: false,
-      errors: [],
-    };
   }
 
   // 静态公有方法 生成幕后页面解析模板：调用时需动态绑定 this
@@ -204,54 +200,14 @@ class MtimeParser {
     return pageURL + typeString;
   }
 
-  // 私有实例方法 带缓存地请求
-  async #cachedFetch(
-    requestURL,
-    init,
-    maxAge = 43200,
-    cacheCondition = (resp) => resp.ok
-  ) {
-    let resp = await this.#cache.match(requestURL);
-    if (resp) {
-      return resp;
-    } else {
-      resp = await fetch(requestURL, init);
-      if (cacheCondition(resp)) {
-        let cloneResp = resp.clone();
-        let newResp = new Response(resp.body, resp);
-        newResp.headers.delete("Set-Cookie");
-        newResp.headers.delete("Vary");
-        newResp.headers.set(
-          "Cache-Control",
-          ["public", `max-age=${maxAge}`, "stale", "must-revalidate"].join(",")
-        );
-        await this.#cache.put(requestURL, newResp);
-        return cloneResp;
-      }
-      return resp;
-    }
-  }
-
-  // 静态私有方法 解析页面：根据解析模板解析页面
-  static async #parsePage(resp, parser) {
-    let rewriter = new HTMLRewriter();
-    parser.element.forEach(({ selector, target, handler }) => {
-      rewriter = rewriter.on(selector, {
-        [target]: handler,
-      });
-    });
-    rewriter = rewriter.onDocument(parser.document);
-    return await rewriter.transform(resp).text();
-  }
-
   // 公有实例方法 请求并解析页面：请求、解析并向实例字段赋值
   async requestAndParsePage(type = "behindTheScene") {
     const requestURL = this.#getRequestURL(type);
-    let resp = await this.#cachedFetch(requestURL);
+    let resp = await this._cachedFetch(requestURL);
     if (resp.ok) {
-      await MtimeParser.#parsePage(
+      await MtimeWorker._parsePage(
         resp,
-        MtimeParser[`${type}PageParserGen`].apply(this)
+        MtimeWorker[`${type}PageParserGen`].apply(this)
       );
     } else {
       this.error.exists = true;
@@ -269,4 +225,4 @@ class MtimeParser {
     return this.requestAndParsePage();
   }
 }
-module.exports = MtimeParser;
+module.exports = MtimeWorker;

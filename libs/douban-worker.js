@@ -1,9 +1,9 @@
 const he = require("he");
+const XWorker = require("./x-worker.js");
 // 类定义
-class DoubanParser {
+class DoubanWorker extends XWorker {
   // 私有实例字段：隐私信息
   #headers;
-  #cache;
   // 私有实例字段：条目页面解析中间变量
   #chineseTitle;
   #originalTitle;
@@ -40,13 +40,9 @@ class DoubanParser {
 
   // 构造函数：创建实例
   constructor(id, headers, cache) {
+    super(cache);
     this.doubanID = id;
     this.#headers = headers;
-    this.#cache = cache;
-    this.error = {
-      exists: false,
-      errors: [],
-    };
   }
 
   // 静态公有方法 生成条目页面解析模板：调用时需动态绑定 this
@@ -715,59 +711,19 @@ class DoubanParser {
     return pageURL + typeString;
   }
 
-  // 私有实例方法 带缓存地请求
-  async #cachedFetch(
-    requestURL,
-    init,
-    maxAge = 43200,
-    cacheCondition = (resp) => resp.ok
-  ) {
-    let resp = await this.#cache.match(requestURL);
-    if (resp) {
-      return resp;
-    } else {
-      resp = await fetch(requestURL, init);
-      if (cacheCondition(resp)) {
-        let cloneResp = resp.clone();
-        let newResp = new Response(resp.body, resp);
-        newResp.headers.delete("Set-Cookie");
-        newResp.headers.delete("Vary");
-        newResp.headers.set(
-          "Cache-Control",
-          ["public", `max-age=${maxAge}`, "stale", "must-revalidate"].join(",")
-        );
-        await this.#cache.put(requestURL, newResp);
-        return cloneResp;
-      }
-      return resp;
-    }
-  }
-
-  // 静态私有方法 解析页面：根据解析模板解析页面
-  static async #parsePage(resp, parser) {
-    let rewriter = new HTMLRewriter();
-    parser.element.forEach(({ selector, target, handler }) => {
-      rewriter = rewriter.on(selector, {
-        [target]: handler,
-      });
-    });
-    rewriter = rewriter.onDocument(parser.document);
-    return await rewriter.transform(resp).text();
-  }
-
   // 公有实例方法 请求并解析页面：请求、解析并向实例字段赋值
   async requestAndParsePage(type = "entry") {
     const requestURL = this.#getRequestURL(type);
-    let resp = await this.#cachedFetch(requestURL, {
+    let resp = await this._cachedFetch(requestURL, {
       headers: this.#headers,
     });
     if (resp.ok) {
-      await DoubanParser.#parsePage(
+      await DoubanWorker._parsePage(
         resp,
-        DoubanParser[`${type}PageParserGen`].apply(this)
+        DoubanWorker[`${type}PageParserGen`].apply(this)
       );
       if (type === "entry" && this.#firstSeasonDoubanID !== null) {
-        const doubanItem = new DoubanParser(
+        const doubanItem = new DoubanWorker(
           this.#firstSeasonDoubanID,
           this.#headers
         );
@@ -847,7 +803,7 @@ class DoubanParser {
 
   // 搜索时光网
   async #mtimeSearch(count = 5) {
-    return await this.#cachedFetch(
+    return await this._cachedFetch(
       "http://my.mtime.com/Service/Movie.mc?" +
         [
           "Ajax_CallBack=true",
@@ -868,4 +824,4 @@ class DoubanParser {
     );
   }
 }
-module.exports = DoubanParser;
+module.exports = DoubanWorker;
