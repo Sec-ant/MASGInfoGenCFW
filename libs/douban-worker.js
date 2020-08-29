@@ -696,7 +696,11 @@ class DoubanWorker extends XWorker {
         resp,
         DoubanWorker[`${type}PageParserGen`].apply(this)
       );
-      if (type === "entry" && this.#data.firstSeasonDoubanID !== null) {
+      if (
+        !this.error.exists &&
+        type === "entry" &&
+        this.#data.firstSeasonDoubanID !== null
+      ) {
         const doubanItem = new DoubanWorker(
           this.#data.firstSeasonDoubanID,
           this.#headers

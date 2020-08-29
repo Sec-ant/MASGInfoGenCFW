@@ -44,55 +44,67 @@ async function handleRequest(request) {
       cookie: searchParams.get("cookie") || incomeHeaders.get("cookie"),
     };
     if (/^\d+$/.test(id)) {
-      const doubanEntry = new DoubanWorker(id, reqHeaders, cache);
-      await doubanEntry.init();
-      let [mtimeEntry, imdbEntry] = await Promise.all([
-        (async () => {
-          let mtimeID = await doubanEntry.mtimeID;
-          if (mtimeID) {
+      let doubanEntry, mtimeEntry, imdbEntry;
+      doubanEntry = await new DoubanWorker(id, reqHeaders, cache).init();
+      if (!doubanEntry.error.exists) {
+        [mtimeEntry, imdbEntry] = await Promise.all([
+          (async () => {
+            let mtimeID = await doubanEntry.mtimeID;
             let mtimeEntry = new MtimeWorker(mtimeID, cache);
-            return mtimeEntry.init();
-          } else {
-            return {
-              mtimeID: null,
-              behindTheScene: [],
-            };
-          }
-        })(),
-        (async () => {
-          let imdbID = await doubanEntry.imdbID;
-          if (imdbID) {
+            if (mtimeID) {
+              return await mtimeEntry.init();
+            } else {
+              mtimeEntry.error.exists = true;
+              mtimeEntry.error.errors.push({
+                url: null,
+                status: 0,
+                statusText: "Mtime ID Not Found",
+              });
+              return mtimeEntry;
+            }
+          })(),
+          (async () => {
+            let imdbID = await doubanEntry.imdbID;
             let imdbEntry = new IMDbWorker(imdbID, cache);
-            return imdbEntry.init();
-          } else {
-            return {
-              imdbID: null,
-              imdbRating: null,
-            };
-          }
-        })(),
-      ]);
-      if (doubanEntry.data.year !== mtimeEntry.data.year) {
-        mtimeEntry.data = {
-          mtimeID: null,
-          behindTheScene: null,
-        };
+            if (imdbID) {
+              return await imdbEntry.init();
+            } else {
+              imdbEntry.error.exists = true;
+              imdbEntry.error.errors.push({
+                url: null,
+                status: 0,
+                statusText: "IMDb ID Not Found",
+              });
+              return imdbEntry;
+            }
+          })(),
+        ]);
       }
       respBody = JSON.stringify({
-        douban: {
-          data: doubanEntry.data,
-          error: doubanEntry.error,
+        data: {
+          douban: doubanEntry,
+          imdb: imdbEntry,
+          mtime: mtimeEntry,
         },
-        imdb: {
-          data: imdbEntry.data,
-          error: imdbEntry.error,
-        },
-        mtime: {
-          data: mtimeEntry.data,
-          error: mtimeEntry.error,
+        error: {
+          exists: false,
+          errors: [],
         },
       });
     } else {
+      respBody = JSON.stringify({
+        data: {},
+        error: {
+          exists: true,
+          errors: [
+            {
+              url: null,
+              status: 0,
+              statusText: "Invalid Request ID",
+            },
+          ],
+        },
+      });
     }
   } else if ("/favicon.ico" === pathName) {
   }
